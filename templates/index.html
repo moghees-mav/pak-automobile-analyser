@@ -48,6 +48,17 @@
     <select id="model" disabled></select>
     <input id="model-custom" type="text" placeholder="or type a model slug, e.g. hs" hidden />
 
+    <div class="target-builder-actions">
+      <button type="button" id="btn-add-target" class="btn btn-ghost" title="Add up to 4 models to compare">+ Compare another car</button>
+    </div>
+    <div id="target-tray" class="target-tray" hidden>
+      <div class="target-tray-header">
+        <span class="muted">Comparison list (max 4):</span>
+        <button type="button" id="btn-clear-targets" class="btn-link">Clear all</button>
+      </div>
+      <div id="target-tags" class="target-tags"></div>
+    </div>
+
     <div class="row">
       <div class="field">
         <label for="pages">Pages to scrape</label>
@@ -123,7 +134,12 @@
     <h2>4. Results</h2>
     <div class="stat-grid" id="result-stats"></div>
 
-    <div class="chart-toolbar">
+    <div class="view-tabs" role="tablist">
+      <button type="button" id="tab-scatter" class="view-tab active" role="tab" aria-selected="true">Scatter &amp; Trends</button>
+      <button type="button" id="tab-boxplots" class="view-tab" role="tab" aria-selected="false">Regional Price Distribution (City-Wise Boxplots)</button>
+    </div>
+
+    <div class="chart-toolbar" id="scatter-toolbar">
       <label>X axis
         <select id="axis-x">
           <option value="year">Model year</option>
@@ -141,6 +157,7 @@
       <label>Colour by
         <select id="color-by">
           <option value="variant_family">Variant</option>
+          <option value="make_model">Model</option>
           <option value="transmission">Transmission</option>
           <option value="fuel_type">Fuel</option>
           <option value="location">City</option>
@@ -150,6 +167,17 @@
       <label class="check"><input id="toggle-trend" type="checkbox" checked /> Trend line</label>
       <label class="check"><input id="toggle-log-y" type="checkbox" /> Log scale (Y)</label>
       <label class="check"><input id="toggle-featured" type="checkbox" checked /> Include featured ads</label>
+    </div>
+
+    <div class="chart-toolbar" id="box-toolbar" hidden>
+      <label>Price unit
+        <select id="box-price-unit">
+          <option value="price_lacs">Price (lacs PKR)</option>
+          <option value="price_pkr">Price (PKR)</option>
+        </select>
+      </label>
+      <label class="check"><input id="box-toggle-points" type="checkbox" checked /> Show data points</label>
+      <label class="check"><input id="box-toggle-featured" type="checkbox" checked /> Include featured ads</label>
     </div>
 
     <div id="chart" class="chart"></div>

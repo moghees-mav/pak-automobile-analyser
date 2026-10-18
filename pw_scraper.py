@@ -1,4 +1,4 @@
-﻿"""PakWheels used-car scraper core.
+"""PakWheels used-car scraper core.
 
 Responsibilities
 ----------------
@@ -28,7 +28,7 @@ import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Iterable, Optional, Sequence
+from typing import Callable, Iterable, Optional, Sequence, Union
 from urllib.parse import parse_qsl, urlencode, urlparse
 
 import numpy as np
@@ -1194,23 +1194,85 @@ def estimate_eta(pages: int, delay: float, latency_s: float) -> float:
 
 def estimate_scrape(
     session: Optional[PoliteSession] = None,
-    make: str = "honda",
-    model: str = "civic",
+    make: Optional[Union[str, Iterable[object]]] = "honda",
+    model: Optional[str] = "civic",
     max_pages: Optional[int] = DEFAULT_PAGES,
     delay: float = DEFAULT_DELAY,
     sample_size: int = 5,
     first_page: Optional[FetchResult] = None,
+    targets: Optional[Iterable[object]] = None,
 ) -> Estimate:
     """Fetch page 1 once and derive an accurate ETA for the requested scrape.
 
+    Supports single make/model or a list of ``targets`` (Feature 2).
     ``max_pages=None`` means "all available pages". ``first_page`` allows the
     caller to supply an already-fetched page 1 (so the web UI never downloads
     the same page twice).
     """
+    if targets is not None or (isinstance(make, (list, tuple, set)) and not isinstance(make, (str, bytes))):
+        target_list = targets if targets is not None else make
+        pairs = normalize_targets(target_list)
+        if len(pairs) == 1:
+            return estimate_scrape(
+                session=session,
+                make=pairs[0][0],
+                model=pairs[0][1],
+                max_pages=max_pages,
+                delay=delay,
+                sample_size=sample_size,
+                first_page=first_page,
+            )
+        owns_session = session is None
+        session = session or PoliteSession(delay=delay)
+        estimates = []
+        try:
+            for i, (m, md) in enumerate(pairs):
+                fp = first_page if i == 0 else None
+                estimates.append(
+                    estimate_scrape(
+                        session=session,
+                        make=m,
+                        model=md,
+                        max_pages=max_pages,
+                        delay=delay,
+                        sample_size=sample_size,
+                        first_page=fp,
+                    )
+                )
+        finally:
+            if owns_session:
+                session.close()
+
+        total_pages = sum(e.pages_to_scrape for e in estimates)
+        total_latencies = [e.latency_s for e in estimates if e.latency_s]
+        avg_latency = (sum(total_latencies) / len(total_latencies)) if total_latencies else 0.0
+        known_results = [e.total_results for e in estimates if e.total_results is not None]
+        known_pages = [e.available_pages for e in estimates if e.available_pages is not None]
+        all_samples = []
+        for e in estimates:
+            all_samples.extend(e.samples)
+
+        combined = Estimate(
+            make="multi",
+            model="comparison",
+            url=search_url(*pairs[0]),
+            delay=max(delay, MIN_DELAY),
+            latency_s=round(avg_latency, 2),
+            total_results=sum(known_results) if known_results else None,
+            available_pages=max(known_pages) if known_pages else None,
+            pages_to_scrape=total_pages,
+            samples=all_samples[:sample_size],
+            measured=all(e.measured for e in estimates),
+            notes="; ".join(e.notes for e in estimates if e.notes),
+        )
+        return combined
+
+    make_str = str(make or "honda")
+    model_str = str(model or "civic")
     owns_session = session is None
     session = session or PoliteSession(delay=delay)
-    url = search_url(make, model)
-    estimate = Estimate(make=make, model=model, url=url, delay=max(delay, MIN_DELAY))
+    url = search_url(make_str, model_str)
+    estimate = Estimate(make=make_str, model=model_str, url=url, delay=max(delay, MIN_DELAY))
 
     try:
         result = first_page if first_page is not None else session.get(url)
@@ -1268,8 +1330,8 @@ ProgressCallback = Callable[[dict], None]
 
 
 def scrape_pakwheels_model(
-    make: str,
-    model: str,
+    make: Optional[Union[str, Iterable[object]]] = None,
+    model: Optional[str] = None,
     pages: Optional[int] = DEFAULT_PAGES,
     delay: float = DEFAULT_DELAY,
     session: Optional[PoliteSession] = None,
@@ -1277,18 +1339,47 @@ def scrape_pakwheels_model(
     should_stop: Optional[Callable[[], bool]] = None,
     first_page: Optional[FetchResult] = None,
     pages_available: Optional[int] = None,
+    targets: Optional[Iterable[object]] = None,
 ) -> pd.DataFrame:
-    """Scrape ``pages`` of results for one make/model and return a DataFrame.
+    """Scrape ``pages`` of results for one make/model (or a list of targets) and return a DataFrame.
 
+    * Supports single make/model or a list of ``targets`` (Feature 2).
+    * If ``targets`` is supplied or ``make`` is a list/tuple of targets,
+      scraping is delegated to :func:`scrape_pakwheels_targets`.
     * ``pages=None`` -> every available page (capped at :data:`MAX_PAGES_CAP`).
     * ``first_page`` lets the caller reuse the HTML already fetched by
       :func:`estimate_scrape`, so page 1 is never requested twice.
     * ``should_stop`` is polled between pages to support cooperative cancel.
     """
+    if targets is not None or (isinstance(make, (list, tuple, set)) and not isinstance(make, (str, bytes))):
+        target_list = targets if targets is not None else make
+        cached_first = None
+        if first_page is not None:
+            try:
+                first_pair = normalize_targets(target_list)[0]
+                cached_first = {first_pair: first_page}
+            except Exception:
+                pass
+        return scrape_pakwheels_targets(
+            targets=target_list,
+            pages=pages,
+            delay=delay,
+            session=session,
+            progress_cb=progress_cb,
+            should_stop=should_stop,
+            pages_available=pages_available,
+            first_pages=cached_first,
+        )
+
+    if not make or not model:
+        raise ValueError("Both 'make' and 'model' are required unless 'targets' is provided.")
+
+    make_str = str(make)
+    model_str = str(model)
     owns_session = session is None
     session = session or PoliteSession(delay=delay)
     delay = max(float(delay), MIN_DELAY)
-    url = search_url(make, model)
+    url = search_url(make_str, model_str)
 
     def notify(stage: str, **extra) -> None:
         if progress_cb:
@@ -1397,6 +1488,9 @@ def scrape_pakwheels_model(
             session.close()
 
     frame = pd.DataFrame(rows, columns=LISTING_COLUMNS)
+    label = make_model_label(make, model)
+    if "make_model" in frame.columns and label:
+        frame["make_model"] = frame["make_model"].fillna(label)
     notify(
         "done",
         listings=len(frame),
@@ -1569,6 +1663,45 @@ def scrape_pakwheels_targets(
         except Exception:  # pragma: no cover - progress must never break a scrape
             logger.exception("progress callback failed")
     return combined
+ 
+ 
+def scrape_pakwheels(
+    targets: Optional[Iterable[object]] = None,
+    make: Optional[str] = None,
+    model: Optional[str] = None,
+    pages: Optional[int] = DEFAULT_PAGES,
+    delay: float = DEFAULT_DELAY,
+    session: Optional[PoliteSession] = None,
+    progress_cb: Optional[ProgressCallback] = None,
+    should_stop: Optional[Callable[[], bool]] = None,
+    pages_available: Optional[int] = None,
+    first_page: Optional[FetchResult] = None,
+    first_pages: Optional[dict] = None,
+) -> pd.DataFrame:
+    """Unified entry point to scrape either a single model or a list of targets."""
+    if targets is not None or (make is not None and not isinstance(make, str)):
+        return scrape_pakwheels_targets(
+            targets=targets if targets is not None else make,
+            pages=pages,
+            delay=delay,
+            session=session,
+            progress_cb=progress_cb,
+            should_stop=should_stop,
+            pages_available=pages_available,
+            first_pages=first_pages,
+        )
+    return scrape_pakwheels_model(
+        make=make,
+        model=model,
+        pages=pages,
+        delay=delay,
+        session=session,
+        progress_cb=progress_cb,
+        should_stop=should_stop,
+        first_page=first_page,
+        pages_available=pages_available,
+    )
+
 
 
 # --------------------------------------------------------------------------- #
@@ -1944,15 +2077,13 @@ def build_scatter_payload(
     make: Optional[str] = None,
     model: Optional[str] = None,
     extra: Optional[dict] = None,
+    targets: Optional[Iterable[object]] = None,
 ) -> dict:
     """Shape a scraped DataFrame into everything the Plotly chart needs.
 
-    Each point carries its FMV fields (``expected_price_pkr`` /
-    ``expected_price_lacs``, ``residual_pkr``, ``z_score``, ``deal_rating`` and
-    ``fmv_method``) so the chart hover, the preview table and the standalone HTML
-    export can surface deal quality without re-fitting anything. When the frame
-    carries no FMV values at all, the engine is applied here, which keeps the CLI's
-    ``--scatter`` path self-contained.
+    Supports multi-model targets (Feature 2) and maintains distinct ``make_model``
+    identifiers per point for trace grouping and Plotly styling. Each point carries
+    its FMV fields so the chart hover, the preview table and exports stay consistent.
     """
     empty_stats = {
         "count": 0,
@@ -1962,17 +2093,40 @@ def build_scatter_payload(
         "make_model_counts": {},
     }
     if df is None or len(df) == 0:
-        empty_models = [make_model_label(make, model)] if make_model_label(make, model) else []
+        active_targets = targets if targets is not None else (extra.get("targets") if extra else None)
+        cmp_meta = comparison_meta(pd.DataFrame(columns=LISTING_COLUMNS), targets=active_targets)
+        fallback = make_model_label(make, model)
+        empty_models = cmp_meta["make_models"] if cmp_meta["make_models"] else ([fallback] if fallback else [])
+        is_cmp = cmp_meta["comparison"] or len(empty_models) > 1
+        headline = cmp_meta["make_model"] or fallback or (" vs ".join(empty_models) if empty_models else None)
+
+        meta_dict = {
+            "make": make,
+            "model": model,
+            "make_model": headline,
+            "make_models": empty_models,
+            "make_model_counts": cmp_meta["make_model_counts"],
+            "targets": cmp_meta["targets"],
+            "comparison": is_cmp,
+        }
+        if extra:
+            meta_dict.update(extra)
+        meta_dict["comparison"] = is_cmp
+        meta_dict["make_models"] = empty_models
+        meta_dict["make_model"] = headline
+
         return {
-            "points": [], "stats": empty_stats, "facets": {},
+            "points": [], "stats": empty_stats, "facets": {
+                "make_model": empty_models,
+                "variant_family": [],
+                "transmission": [],
+                "fuel_type": [],
+                "location": [],
+                "deal_rating": [],
+            },
             "editable_fields": editable_field_specs(),
             "trend": None,
-            "meta": {
-                "make": make, "model": model,
-                "make_models": empty_models,
-                "comparison": False,
-                **(extra or {}),
-            },
+            "meta": meta_dict,
         }
 
     frame = df.copy()
@@ -1994,6 +2148,8 @@ def build_scatter_payload(
             {
                 "listing_id": record.get("listing_id"),
                 "title": _payload_text(record.get("title")),
+                "make": _payload_text(record.get("make")),
+                "model": _payload_text(record.get("model")),
                 "make_model": _payload_text(record.get("make_model"))
                 or make_model_label(record.get("make"), record.get("model"))
                 or fallback_label,
@@ -2079,11 +2235,38 @@ def build_scatter_payload(
         "make_model_counts": make_model_counts,
     }
 
+    active_targets = targets if targets is not None else (extra.get("targets") if extra else None)
+    cmp_meta = comparison_meta(frame, targets=active_targets)
+    for mm in cmp_meta["make_models"]:
+        if mm not in make_models:
+            make_models.append(mm)
+
+    is_comparison = len(make_models) > 1 or cmp_meta["comparison"]
+    headline = cmp_meta["make_model"] or (make_model_label(make, model) if make and model else (" vs ".join(make_models) if make_models else None))
+    stats["make_model_counts"] = cmp_meta["make_model_counts"] or make_model_counts
+
+    meta_dict = {
+        "make": make,
+        "model": model,
+        "make_model": headline,
+        "make_models": make_models,
+        "make_model_counts": stats["make_model_counts"],
+        "targets": cmp_meta["targets"],
+        "comparison": is_comparison,
+    }
+    if extra:
+        meta_dict.update(extra)
+    meta_dict["comparison"] = is_comparison
+    meta_dict["make_models"] = make_models
+    meta_dict["make_model"] = headline
+    meta_dict["make_model_counts"] = stats["make_model_counts"]
+    meta_dict["targets"] = cmp_meta["targets"]
+
     return {
         "points": points,
         "stats": stats,
         "facets": {
-            "make_model": sorted(make_models),
+            "make_model": make_models,
             "variant_family": facet("variant_family"),
             "transmission": facet("transmission"),
             "fuel_type": facet("fuel_type"),
@@ -2094,13 +2277,7 @@ def build_scatter_payload(
         },
         "trend": trend,
         "editable_fields": editable_field_specs(),
-        "meta": {
-            "make": make,
-            "model": model,
-            "make_models": make_models,
-            "comparison": len(make_models) > 1,
-            **(extra or {}),
-        },
+        "meta": meta_dict,
     }
 
 
@@ -2124,19 +2301,17 @@ def comparison_meta(
 
     make_values = frame["make"].tolist() if "make" in frame.columns else [None] * len(frame)
     model_values = frame["model"].tolist() if "model" in frame.columns else [None] * len(frame)
-    if len(frame) and "make_model" in frame.columns:
-        rows = list(zip(frame["make_model"].tolist(), make_values, model_values))
-    else:
-        rows = [
-            (make_model_label(make, model), make, model)
-            for make, model in zip(make_values, model_values)
-        ]
+    raw_mm = frame["make_model"].tolist() if "make_model" in frame.columns else [None] * len(frame)
+    rows = [
+        (_clean_label(mm) or make_model_label(mk, md), mk, md)
+        for mm, mk, md in zip(raw_mm, make_values, model_values)
+    ]
 
     counts: dict[str, int] = {}
     labels: list[str] = []
     origin: dict[str, tuple[Optional[str], Optional[str]]] = {}
     for value, make, model in rows:
-        label = _clean_label(value)
+        label = _clean_label(value) or make_model_label(make, model)
         if not label:
             continue
         key = label.casefold()
@@ -2223,12 +2398,28 @@ def save_run(df: pd.DataFrame, meta: dict, run_dir: Path) -> dict:
     json_path = run_dir / "listings.json"
     meta_path = run_dir / "meta.json"
 
-    df.to_csv(csv_path, index=False, encoding="utf-8-sig")
-    df.to_json(json_path, orient="records", indent=2, force_ascii=False)
+    export_df = df.copy() if df is not None else pd.DataFrame(columns=LISTING_COLUMNS)
+    if "make_model" not in export_df.columns:
+        if "make" in export_df.columns and "model" in export_df.columns:
+            export_df["make_model"] = [
+                make_model_label(m, md) for m, md in zip(export_df["make"], export_df["model"])
+            ]
+        else:
+            export_df["make_model"] = None
+    elif "make" in export_df.columns and "model" in export_df.columns:
+        fallback_labels = [
+            make_model_label(m, md) for m, md in zip(export_df["make"], export_df["model"])
+        ]
+        export_df["make_model"] = export_df["make_model"].fillna(
+            pd.Series(fallback_labels, index=export_df.index)
+        )
+
+    export_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+    export_df.to_json(json_path, orient="records", indent=2, force_ascii=False)
     with meta_path.open("w", encoding="utf-8") as handle:
         json.dump(meta, handle, indent=2, ensure_ascii=False, default=str)
 
-    logger.info("Saved run to %s (%d rows)", run_dir, len(df))
+    logger.info("Saved run to %s (%d rows)", run_dir, len(export_df))
     return {
         "dir": str(run_dir),
         "csv": str(csv_path),
@@ -2300,23 +2491,30 @@ function traceForGroup(key) {{
     ]);
     bucket.colors.push(dealColor(p.deal_rating));
   }});
-  return Array.from(groups.entries()).map(([name, bucket]) => ({{
-    type: "scatter", mode: "markers", name: name,
-    x: bucket.x, y: bucket.y, text: bucket.text, customdata: bucket.customdata,
-    hovertemplate: "<b>%{{text}}</b><br>Year: %{{x}}<br>Price: %{{y}} lacs"
-      + "<br>Mileage: %{{customdata[0]}}<br>City: %{{customdata[1]}}"
-      + "<br>Transmission: %{{customdata[2]}}"
-      + "<br>FMV: %{{customdata[5]}} (residual %{{customdata[6]}})"
-      + "<br>Deal: %{{customdata[8]}} (z=%{{customdata[7]}}, %{{customdata[9]}})"
-      + "<extra>" + name + "</extra>",
-    marker: {{
-      size: 10, opacity: 0.8, color: bucket.colors,
+  return Array.from(groups.entries()).map(([name, bucket]) => {{
+    const marker = {{
+      size: 10, opacity: 0.8,
       line: {{ width: 0.5, color: "#ffffff" }}
+    }};
+    if (key !== "make_model") {{
+      marker.color = bucket.colors;
     }}
-  }}));
+    return ({{
+      type: "scatter", mode: "markers", name: name,
+      x: bucket.x, y: bucket.y, text: bucket.text, customdata: bucket.customdata,
+      hovertemplate: "<b>%{{text}}</b><br>Year: %{{x}}<br>Price: %{{y}} lacs"
+        + "<br>Mileage: %{{customdata[0]}}<br>City: %{{customdata[1]}}"
+        + "<br>Transmission: %{{customdata[2]}}"
+        + "<br>FMV: %{{customdata[5]}} (residual %{{customdata[6]}})"
+        + "<br>Deal: %{{customdata[8]}} (z=%{{customdata[7]}}, %{{customdata[9]}})"
+        + "<extra>" + name + "</extra>",
+      marker: marker
+    }});
+  }});
 }}
 
-const traces = traceForGroup("variant_family");
+const groupKey = (PAYLOAD.meta && PAYLOAD.meta.comparison) ? "make_model" : "variant_family";
+const traces = traceForGroup(groupKey);
 const trend = PAYLOAD.trend;
 if (trend) {{
   traces.push({{
@@ -2347,7 +2545,9 @@ def render_scatter_html(payload: dict, title: str, subtitle: str = "") -> str:
     stats = payload.get("stats") or {}
     if not subtitle:
         pieces = [f"{stats.get('count', 0)} listings"]
-        if meta.get("make"):
+        if meta.get("make_model"):
+            pieces.append(str(meta.get("make_model")))
+        elif meta.get("make"):
             pieces.append(f"{meta.get('make')} {meta.get('model') or ''}".strip())
         if meta.get("generated_at"):
             pieces.append(f"generated {meta['generated_at']}")

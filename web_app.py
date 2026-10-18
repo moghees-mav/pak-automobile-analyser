@@ -403,6 +403,7 @@ def refresh_job_outputs(job: Job) -> None:
         frame,
         make=job.make,
         model=job.model,
+        targets=pairs,
         extra={
             "generated_at": meta.get("generated_at"),
             "source_url": meta.get("source_url"),
@@ -976,8 +977,3 @@ def main(argv: Optional[list[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-
-
-

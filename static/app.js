@@ -33,12 +33,19 @@
     previewFilter: "",
     dealFilter: "",
     editing: null,
+    targets: [],
+    viewMode: "scatter",
     chartOptions: {
       x: "year",
       y: "price_lacs",
       color: "variant_family",
       trend: true,
       logY: false,
+      includeFeatured: true
+    },
+    boxOptions: {
+      priceUnit: "price_lacs",
+      showPoints: true,
       includeFeatured: true
     }
   };
@@ -188,21 +195,98 @@
     var make = custom ? ($("make-custom").value || "").trim() : $("make").value;
     var model = custom ? ($("model-custom").value || "").trim() : $("model").value;
     if (!make || !model) {
-      showError("Please choose both a make and a model (or type their slugs).");
       return null;
     }
-    return { make: make, model: model };
+    var makeText = custom ? make : ($("make").options[$("make").selectedIndex] ? $("make").options[$("make").selectedIndex].text.replace(/\s*\(\d+\)$/, "") : make);
+    var modelText = custom ? model : ($("model").options[$("model").selectedIndex] ? $("model").options[$("model").selectedIndex].text : model);
+    var label = makeText + " " + modelText;
+    return { make: make, model: model, label: label };
+  }
+
+  function renderTargetTray() {
+    var tray = $("target-tray");
+    var tags = $("target-tags");
+    if (!tray || !tags) { return; }
+    tags.innerHTML = "";
+    if (!state.targets.length) {
+      tray.hidden = true;
+      return;
+    }
+    tray.hidden = false;
+    state.targets.forEach(function (tgt, idx) {
+      var tag = document.createElement("span");
+      tag.className = "target-tag";
+      tag.innerHTML = escapeHtml(tgt.label) +
+        '<button type="button" class="target-tag-remove" data-remove-target="' + idx + '" title="Remove">×</button>';
+      tags.appendChild(tag);
+    });
+  }
+
+  function addCurrentTarget() {
+    var current = currentSelection();
+    if (!current) {
+      showError("Please pick a make and model first to add it to comparison.");
+      return;
+    }
+    if (state.targets.length >= 4) {
+      showError("Comparison is capped at 4 models.");
+      return;
+    }
+    var exists = state.targets.some(function (t) {
+      return t.make.toLowerCase() === current.make.toLowerCase() &&
+             t.model.toLowerCase() === current.model.toLowerCase();
+    });
+    if (exists) {
+      showInfo(current.label + " is already in the comparison list.");
+      return;
+    }
+    state.targets.push(current);
+    renderTargetTray();
+    state.estimate = null;
+    $("btn-start").disabled = false;
+  }
+
+  function removeTargetAt(idx) {
+    state.targets.splice(idx, 1);
+    renderTargetTray();
+    state.estimate = null;
+  }
+
+  function clearAllTargets() {
+    state.targets = [];
+    renderTargetTray();
+    state.estimate = null;
   }
 
   function buildBody() {
-    var selection = currentSelection();
-    if (!selection) { return null; }
-    return {
-      make: selection.make,
-      model: selection.model,
+    var targetsList = [];
+    if (state.targets.length > 0) {
+      // If user built a comparison list, use it
+      targetsList = state.targets.map(function (t) {
+        return { make: t.make, model: t.model };
+      });
+      // If current dropdown has a car not yet added, and total is less than 4, could optionally include or just use tray
+    } else {
+      var selection = currentSelection();
+      if (!selection) {
+        showError("Please choose both a make and a model (or type their slugs).");
+        return null;
+      }
+      targetsList = [{ make: selection.make, model: selection.model }];
+    }
+
+    var body = {
       pages: $("all-pages").checked ? "all" : $("pages").value,
       delay: Number($("delay").value) || 2
     };
+
+    if (targetsList.length > 1) {
+      body.targets = targetsList;
+    } else {
+      body.make = targetsList[0].make;
+      body.model = targetsList[0].model;
+    }
+    return body;
   }
 
   // ----------------------------------------------------------------- estimate
@@ -342,6 +426,11 @@
     getJSON("/api/result/" + snapshot.id).then(function (payload) {
       state.payload = payload;
       state.snapshot = snapshot;
+      if (payload.meta && payload.meta.comparison) {
+        state.chartOptions.color = "make_model";
+        var colorSelect = $("color-by");
+        if (colorSelect) { colorSelect.value = "make_model"; }
+      }
       $("results-panel").hidden = false;
       renderResultStats(payload, snapshot);
       wireDownloads(snapshot, payload);
@@ -633,7 +722,61 @@
     return labels[key] || key;
   }
 
+  var PALETTE = [
+    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
+    "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
+    "#bcbd22", "#17becf"
+  ];
+
+  function linearFitPoints(xVals, yVals) {
+    var pairs = [];
+    for (var i = 0; i < xVals.length; i++) {
+      var x = Number(xVals[i]);
+      var y = Number(yVals[i]);
+      if (isFinite(x) && isFinite(y)) {
+        pairs.push([x, y]);
+      }
+    }
+    var n = pairs.length;
+    if (n < 2) { return null; }
+    var sx = 0, sy = 0, sxy = 0, sxx = 0, syy = 0;
+    pairs.forEach(function (p) {
+      sx += p[0]; sy += p[1];
+      sxy += p[0] * p[1];
+      sxx += p[0] * p[0];
+      syy += p[1] * p[1];
+    });
+    var denom = n * sxx - sx * sx;
+    if (Math.abs(denom) < 1e-9) { return null; }
+    var slope = (n * sxy - sx * sy) / denom;
+    var intercept = (sy - slope * sx) / n;
+    var ssTot = syy - (sy * sy) / n;
+    var ssRes = syy - intercept * sy - slope * sxy;
+    var rSquared = ssTot > 0 ? Math.max(0, 1 - ssRes / ssTot) : null;
+    var xs = pairs.map(function (p) { return p[0]; }).sort(function (a, b) { return a - b; });
+    var xMin = xs[0];
+    var xMax = xs[xs.length - 1];
+    if (xMin === xMax) { return null; }
+    return {
+      slope: Math.round(slope * 10000) / 10000,
+      intercept: Math.round(intercept * 10000) / 10000,
+      r_squared: rSquared !== null ? Math.round(rSquared * 1000) / 1000 : null,
+      x_min: xMin,
+      x_max: xMax,
+      y_at_x_min: Math.round((slope * xMin + intercept) * 100) / 100,
+      y_at_x_max: Math.round((slope * xMax + intercept) * 100) / 100
+    };
+  }
+
   function drawChart() {
+    if (state.viewMode === "boxplots") {
+      drawBoxplots();
+    } else {
+      drawScatter();
+    }
+  }
+
+  function drawScatter() {
     var chart = $("chart");
     if (!window.Plotly) {
       chart.innerHTML = '<p class="muted" style="padding:24px">Plotly.js could not be loaded ' +
@@ -672,15 +815,20 @@
     }
 
     var traces = [];
-    entries.forEach(function (entry) {
+    var isComparison = payload.meta && payload.meta.comparison;
+    var isModelColor = options.color === "make_model";
+
+    entries.forEach(function (entry, idx) {
       var key = entry[0];
       var items = entry[1];
+      var color = (options.color === "deal_rating") ? dealColor(key) : PALETTE[idx % PALETTE.length];
       var marker = {
         size: options.color === "deal_rating" ? 13 : 12,
         opacity: 0.85,
+        color: color,
         line: { width: 1, color: "#ffffff" }
       };
-      if (options.color === "deal_rating") { marker.color = dealColor(key); }
+
       traces.push({
         type: "scatter",
         mode: "markers",
@@ -698,22 +846,42 @@
             point.deal_rating || "Unknown",
             (point.z_score === null || point.z_score === undefined)
               ? "n/a" : Number(point.z_score).toFixed(2),
-            point.fmv_method || "unavailable"
+            point.fmv_method || "unavailable",
+            point.make_model || ""
           ];
         }),
         marker: marker,
         hovertemplate: "<b>%{text}</b><br>" + axisLabel(options.x) + ": %{x}" +
-          "<br>Price: %{customdata[0]}<br>Variant: %{customdata[1]}" +
-          "<br>Mileage: %{customdata[2]} km<br>Transmission: %{customdata[3]}" +
-          "<br>Fuel: %{customdata[4]}<br>City: %{customdata[5]}" +
+          "<br>Price: %{customdata[0]}<br>Model: %{customdata[14]}" +
+          "<br>Variant: %{customdata[1]}<br>Mileage: %{customdata[2]} km" +
+          "<br>Transmission: %{customdata[3]}<br>Fuel: %{customdata[4]}<br>City: %{customdata[5]}" +
           "<br>%{customdata[6]} (%{customdata[8]})" +
           "<br>FMV: %{customdata[9]}<br>Residual: %{customdata[10]}" +
           "<br>Deal: %{customdata[11]} (z=%{customdata[12]}, %{customdata[13]})" +
           "<extra>" + key + "</extra>"
       });
+
+      // Individual trendline per model when comparing models or colored by make_model
+      if (options.trend && (isModelColor || (isComparison && entries.length <= 4)) && options.x === "year" && options.y === "price_lacs") {
+        var xVals = items.map(function (p) { return p.year; });
+        var yVals = items.map(function (p) { return p.price_lacs; });
+        var fit = linearFitPoints(xVals, yVals);
+        if (fit) {
+          traces.push({
+            type: "scatter",
+            mode: "lines",
+            name: key + " Trend (R²=" + fit.r_squared + ")",
+            x: [fit.x_min, fit.x_max],
+            y: [Math.max(0, fit.y_at_x_min), Math.max(0, fit.y_at_x_max)],
+            line: { color: color, width: 2, dash: "dot" },
+            hovertemplate: key + " Trend: " + fit.slope + " lacs/yr<extra></extra>"
+          });
+        }
+      }
     });
 
-    if (options.trend && payload.trend && options.x === "year" && options.y === "price_lacs") {
+    // Single overall trendline if not coloured by model and not a comparison run
+    if (options.trend && !isModelColor && !isComparison && payload.trend && options.x === "year" && options.y === "price_lacs") {
       traces.push({
         type: "scatter",
         mode: "lines",
@@ -740,8 +908,158 @@
         gridcolor: "#eef2f8",
         zeroline: false
       },
-      legend: { orientation: "h", y: -0.25 },
+      legend: {
+        orientation: "h",
+        y: -0.25,
+        itemclick: "toggle",
+        itemdoubleclick: "toggleothers"
+      },
       hovermode: "closest",
+      paper_bgcolor: "rgba(0,0,0,0)",
+      plot_bgcolor: "rgba(0,0,0,0)"
+    };
+
+    Plotly.react(chart, traces, layout, {
+      responsive: true,
+      displaylogo: false,
+      modeBarButtonsToRemove: ["lasso2d", "select2d"]
+    });
+  }
+
+  function drawBoxplots() {
+    var chart = $("chart");
+    if (!window.Plotly) {
+      chart.innerHTML = '<p class="muted" style="padding:24px">Plotly.js could not be loaded.</p>';
+      return;
+    }
+    var payload = state.payload;
+    if (!payload || !(payload.points || []).length) {
+      chart.innerHTML = '<p class="muted" style="padding:24px">No listings to plot.</p>';
+      return;
+    }
+
+    var bOptions = state.boxOptions;
+    var priceKey = bOptions.priceUnit;
+    var unitLabel = priceKey === "price_lacs" ? "Price (lacs PKR)" : "Price (PKR)";
+
+    var targetCities = ["Islamabad", "Lahore", "Karachi", "Rawalpindi"];
+    var cityMap = {
+      "islamabad": "Islamabad",
+      "lahore": "Lahore",
+      "karachi": "Karachi",
+      "rawalpindi": "Rawalpindi"
+    };
+
+    var eligiblePoints = (payload.points || []).filter(function (p) {
+      if (!bOptions.includeFeatured && p.is_featured) { return false; }
+      if (p[priceKey] === null || p[priceKey] === undefined) { return false; }
+      if (!p.location) { return false; }
+      var norm = p.location.trim().toLowerCase();
+      return cityMap[norm] !== undefined;
+    });
+
+    if (!eligiblePoints.length) {
+      chart.innerHTML = '<p class="muted" style="padding:24px">No listings found for Islamabad, Lahore, Karachi, or Rawalpindi.</p>';
+      return;
+    }
+
+    var isComparison = payload.meta && payload.meta.comparison;
+    var traces = [];
+
+    if (isComparison) {
+      // Group by model, then render grouped boxplots per city
+      var models = payload.meta.make_models || [];
+      if (!models.length) {
+        var seen = new Set();
+        eligiblePoints.forEach(function (p) { if (p.make_model) seen.add(p.make_model); });
+        models = Array.from(seen);
+      }
+
+      models.forEach(function (modelName, idx) {
+        var modelPoints = eligiblePoints.filter(function (p) {
+          return (p.make_model || "") === modelName;
+        });
+        if (!modelPoints.length) { return; }
+
+        var xVals = [];
+        var yVals = [];
+        var hoverTexts = [];
+
+        modelPoints.forEach(function (p) {
+          var canonicalCity = cityMap[p.location.trim().toLowerCase()];
+          xVals.push(canonicalCity);
+          yVals.push(p[priceKey]);
+          hoverTexts.push(
+            "<b>" + escapeHtml(p.title || "") + "</b><br>" +
+            "City: " + canonicalCity + "<br>" +
+            "Price: " + (priceKey === "price_lacs" ? formatLacs(p.price_lacs) : formatPkr(p.price_pkr)) + "<br>" +
+            "Year: " + (p.year || "-") + "<br>" +
+            "Variant: " + (p.variant || "-") + "<br>" +
+            "Mileage: " + (p.mileage_km ? p.mileage_km + " km" : "-")
+          );
+        });
+
+        traces.push({
+          type: "box",
+          name: modelName,
+          x: xVals,
+          y: yVals,
+          text: hoverTexts,
+          hoverinfo: "text+y",
+          boxpoints: bOptions.showPoints ? "outliers" : false,
+          jitter: 0.3,
+          pointpos: -1.8,
+          marker: { color: PALETTE[idx % PALETTE.length], size: 6 }
+        });
+      });
+    } else {
+      // Single model: one box trace per city
+      targetCities.forEach(function (city, idx) {
+        var cityPoints = eligiblePoints.filter(function (p) {
+          return cityMap[p.location.trim().toLowerCase()] === city;
+        });
+        if (!cityPoints.length) { return; }
+
+        var yVals = cityPoints.map(function (p) { return p[priceKey]; });
+        var hoverTexts = cityPoints.map(function (p) {
+          return "<b>" + escapeHtml(p.title || "") + "</b><br>" +
+            "City: " + city + "<br>" +
+            "Price: " + (priceKey === "price_lacs" ? formatLacs(p.price_lacs) : formatPkr(p.price_pkr)) + "<br>" +
+            "Year: " + (p.year || "-") + "<br>" +
+            "Variant: " + (p.variant || "-") + "<br>" +
+            "Mileage: " + (p.mileage_km ? p.mileage_km + " km" : "-");
+        });
+
+        traces.push({
+          type: "box",
+          name: city + " (" + cityPoints.length + ")",
+          y: yVals,
+          text: hoverTexts,
+          hoverinfo: "text+y",
+          boxpoints: bOptions.showPoints ? "outliers" : false,
+          jitter: 0.3,
+          pointpos: -1.8,
+          marker: { color: PALETTE[idx % PALETTE.length], size: 6 }
+        });
+      });
+    }
+
+    var headline = (payload.meta && payload.meta.make_model) ? payload.meta.make_model + " - " : "";
+    var layout = {
+      title: { text: headline + "Regional Price Distribution (Top Cities)", font: { size: 14 } },
+      margin: { t: 40, r: 16, b: 60, l: 75 },
+      yaxis: {
+        title: unitLabel,
+        gridcolor: "#eef2f8",
+        zeroline: false
+      },
+      boxmode: isComparison ? "group" : "overlay",
+      legend: {
+        orientation: "h",
+        y: -0.2,
+        itemclick: "toggle",
+        itemdoubleclick: "toggleothers"
+      },
       paper_bgcolor: "rgba(0,0,0,0)",
       plot_bgcolor: "rgba(0,0,0,0)"
     };
@@ -797,7 +1115,50 @@
       event.preventDefault();
       closeEditor();
     });
-    $("edit-dialog").addEventListener("close", function () { state.editing = null; });
+    $("btn-add-target").addEventListener("click", addCurrentTarget);
+    $("btn-clear-targets").addEventListener("click", clearAllTargets);
+    $("target-tags").addEventListener("click", function (event) {
+      var btn = event.target.closest("[data-remove-target]");
+      if (btn) {
+        var idx = parseInt(btn.getAttribute("data-remove-target"), 10);
+        if (!isNaN(idx)) { removeTargetAt(idx); }
+      }
+    });
+
+    $("tab-scatter").addEventListener("click", function () {
+      state.viewMode = "scatter";
+      $("tab-scatter").classList.add("active");
+      $("tab-scatter").setAttribute("aria-selected", "true");
+      $("tab-boxplots").classList.remove("active");
+      $("tab-boxplots").setAttribute("aria-selected", "false");
+      $("scatter-toolbar").hidden = false;
+      $("box-toolbar").hidden = true;
+      drawChart();
+    });
+
+    $("tab-boxplots").addEventListener("click", function () {
+      state.viewMode = "boxplots";
+      $("tab-boxplots").classList.add("active");
+      $("tab-boxplots").setAttribute("aria-selected", "true");
+      $("tab-scatter").classList.remove("active");
+      $("tab-scatter").setAttribute("aria-selected", "false");
+      $("scatter-toolbar").hidden = true;
+      $("box-toolbar").hidden = false;
+      drawChart();
+    });
+
+    $("box-price-unit").addEventListener("change", function (event) {
+      state.boxOptions.priceUnit = event.target.value;
+      drawChart();
+    });
+    $("box-toggle-points").addEventListener("change", function (event) {
+      state.boxOptions.showPoints = event.target.checked;
+      drawChart();
+    });
+    $("box-toggle-featured").addEventListener("change", function (event) {
+      state.boxOptions.includeFeatured = event.target.checked;
+      drawChart();
+    });
   }
 
   wireEvents();

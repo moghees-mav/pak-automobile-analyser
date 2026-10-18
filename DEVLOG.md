@@ -1,8 +1,8 @@
 # DEVLOG — PakWheels Scraper & Visualizer
 
 > Single source of truth for roadmap progress, state changes and hand-off notes.
-> **Last updated:** 2026-10-18
-> **Current status:** `Feature 1 - Micro-Task 1.2: Complete`
+> **Last updated:** 2026-10-19
+> **Current status:** `Feature 2 - Micro-Task 2.1: Complete`
 
 ---
 
@@ -11,34 +11,37 @@
 | Track | Scope | Status |
 |---|---|---|
 | Baseline (Sessions 1–2) | Polite scraper, Flask UI, Plotly scatter, CSV/JSON/HTML exports, manual listing edits | **Done** |
-| **Feature 1** | FMV & Deal Rating Engine — curve fitting, residuals, z-scores, deal surfacing | **In progress — 1.2 Complete; 1.3 next** |
-| Feature 2 | Multi-Model Comparative Visualizations — multi-trace overlay, city-wise boxplots | Not started |
+| Feature 1 | FMV & Deal Rating Engine — curve fitting, residuals, z-scores, deal surfacing | **1.1 & 1.2 Done; 1.3 deferred** |
+| **Feature 2** | Multi-Model Comparative Visualizations — multi-trace overlay, city-wise boxplots | **In progress — 2.1 Complete; 2.2 next** |
 | Feature 3 | Historical Tracking & Price Drops — SQLite storage, snapshot comparisons, price-drop badging | Not started |
 | Feature 4 | Advanced Filters & PDF Market Report — UI sliders, PDF generation | Not started |
 
 ### Active Micro-Task
 
-**`Feature 1 - Micro-Task 1.2: Complete`**
+**`Feature 2 - Micro-Task 2.1: Complete`**
 
-Delivered (2026-10-18):
+Delivered (2026-10-19):
 
-- `build_scatter_payload()` now exposes `expected_price_pkr`, `expected_price_lacs`,
-  `residual_pkr`, `z_score`, `deal_rating` and `fmv_method` on every point, plus
-  `stats.deal_counts`, `stats.deal_rated_count`, `stats.fmv_available_count` and a
-  `facets.deal_rating` list. It fits the FMV engine itself when the input frame has
-  no computed scores, so the CLI `--scatter` path stays self-contained.
-- `refresh_job_outputs()` runs `calculate_fmv_and_deal_scores()` once before building
-  the payload, preview and run files — chart, table and every download now agree.
-- UI: “Colour by → Deal rating” maps points to green (Great Deal), light green
-  (Good Deal), blue (Fair Price), red (Overpriced) and grey (Unknown); hover shows
-  FMV, residual, z-score and fit method. The preview table gains FMV/residual
-  columns and colour-coded deal badges, with an “All ratings” deal filter.
-  Result stats gain Great deals / Overpriced / FMV coverage cards.
-- The standalone HTML export also colours markers by deal rating and shows the same
-  FMV and deal details on hover. Point values are normalised for nullable pandas
-  dtypes (`pd.NA` → `None`; feature flags no longer become `True` from `NaN`).
-- README API/column/test documentation refreshed for the FMV fields and UI controls.
-- Three new tests (2 payload contract tests, 1 `refresh_job_outputs` wiring test).
+- `pw_scraper.py` scraping methods updated: `scrape_pakwheels_model()`, `estimate_scrape()`,
+  and unified entry point `scrape_pakwheels()` now accept a list of model targets
+  (e.g., `[("honda", "civic"), ("toyota", "corolla")]`) as parameter `targets` or as
+  the first argument, delegating smoothly to `scrape_pakwheels_targets()`.
+- `build_scatter_payload()` now maintains distinct `make`, `model`, and `make_model`
+  identifiers per listing point. In comparison runs, it sets `meta.comparison = True`,
+  `meta.make_model` headline (`"Honda Civic vs Toyota Corolla"`), `meta.make_models`,
+  `meta.make_model_counts`, `meta.targets`, and exposes `facets.make_model`.
+- Dataset exports (`listings.csv`, `listings.json`) now reliably guarantee the presence
+  and population of the `make_model` column for every row, and `meta.json` is correctly
+  enriched with multi-model target comparisons via `save_run()` and `merge_run_meta()`.
+- UI & Visualizer: added `<option value="make_model">Model</option>` to `<select id="color-by">`
+  in `templates/index.html`. `static/app.js` automatically sets `color-by` to `"make_model"`
+  when loading a comparison job. Standalone HTML export (`render_scatter_html`) defaults
+  to grouping traces by `make_model` for comparison runs.
+- CLI: `PW_SCRIPT.PY --scatter` updated to pass targets to `build_scatter_payload()`.
+- Unit test coverage: added `MultiModelPayloadTests` (7 new tests in `tests/test_parsers.py`)
+  verifying target normalization, comparison labels, multi-model payload generation,
+  empty-frame handling, CSV/JSON/meta.json output parity, HTML render, and scraping target delegation.
+- Verification: Full test suite passing (**77 tests OK**: 50 parser + 27 web/edit).
 
 **Acceptance criteria:** implementation + deterministic offline tests pass, existing
 suite stays green, DEVLOG updated. Fitted-curve overlay and confidence bands remain
@@ -156,7 +159,7 @@ criterion and whether to trim IQR/MAD outliers before fitting.
 
 | ID | Micro-task | Target files | Status |
 |---|---|---|---|
-| 2.1 | Comparison state + API to combine 2–4 finished jobs | `web_app.py`, new endpoint, tests | Not started |
+| 2.1 | Support Multi-Model Scrape & Payload Generation (targets parameter, make_model stamping, meta.json labeling, tests) | `pw_scraper.py`, `web_app.py`, `static/app.js`, `templates/index.html`, tests | **Done** |
 | 2.2 | Multi-trace price overlay with per-model colour/legend | `static/app.js`, UI controls | Not started |
 | 2.3 | City-wise boxplots per model (location facet, outlier handling) | `static/app.js`, payload facets | Not started |
 | 2.4 | Comparison summary stats + export snapshot | `web_app.py`, `static/app.js`, tests | Not started |
@@ -262,14 +265,24 @@ node --check static/app.js                     # JS syntax check
   all deal options in both dropdowns and no console errors.
 - Re-scoped at user request: exponential fit/model selection moves to 1.3, curve
   overlay + confidence band to 1.4.
-- Next: **Micro-Task 1.3** — log-linear exponential fit + poly-vs-exp selection.
+- Next: **Micro-Task 2.1** — support multi-model scrape & payload generation.
+
+### 2026-10-19 — Micro-Task 2.1 complete (Multi-model scrape & payload generation)
+- Updated `pw_scraper.py`: `scrape_pakwheels_model()`, `estimate_scrape()`, and `scrape_pakwheels()` accept target lists (e.g. `[("honda", "civic"), ("toyota", "corolla")]`) and delegate to `scrape_pakwheels_targets()`.
+- Updated `build_scatter_payload()`: retains distinct `make`, `model`, and `make_model` identifiers per listing. Multi-model jobs set `meta.comparison = True`, populate `meta.make_model` headline, `meta.make_models`, `meta.make_model_counts`, `meta.targets`, and expose `facets.make_model`.
+- Dataset export parity: `save_run()` and `merge_run_meta()` ensure `make_model` column is present and filled in both `listings.csv` and `listings.json`, and `meta.json` accurately describes comparison targets and counts.
+- UI & Visualizer: added `<option value="make_model">Model</option>` to `templates/index.html`. `app.js` automatically defaults chart color to `make_model` for comparison runs. Standalone HTML export (`render_scatter_html`) defaults to grouping traces by `make_model`.
+- CLI: `PW_SCRIPT.PY --scatter` updated to pass targets to `build_scatter_payload()`.
+- Unit tests: added `MultiModelPayloadTests` (7 tests) in `tests/test_parsers.py`.
+- Verification: **77 tests OK** (50 parser + 27 web/edit), `py_compile` clean, `node --check static/app.js` clean.
+- Next: **Micro-Task 2.2** — multi-trace price overlay with per-model colour/legend.
 
 ---
 
 ## 9. Next Step
 
-**Micro-Task 1.3** — add log-linear exponential depreciation fitting and choose
-between polynomial and exponential per variant (RMSE/AIC), with offline tests.
-Then 1.4 adds the fitted-curve overlay and confidence band.
+**Micro-Task 2.2** — multi-trace price overlay with per-model colour palette and
+interactive Plotly legend filtering.
+
 
 

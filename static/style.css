@@ -151,8 +151,39 @@ tbody tr:hover { background: #f8fafd; }
 
 .footer { padding: 10px 24px 26px; color: var(--muted); font-size: 12px; }
 
+/* Target builder & multi-model tags (Feature 2) */
+.target-builder-actions { margin: 8px 0 6px; }
+.btn-mini { padding: 4px 8px; font-size: 11.5px; }
+.btn-link { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 12px; text-decoration: underline; padding: 0; }
+.btn-link:hover { color: var(--accent-dark); }
+
+.target-tray { margin: 6px 0 14px; padding: 10px 12px; background: #f8fafd; border: 1px solid var(--line); border-radius: 8px; }
+.target-tray-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 12px; }
+.target-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.target-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; background: #ffffff; border: 1px solid var(--accent);
+  border-radius: 999px; font-size: 12.5px; font-weight: 500; color: var(--accent-dark);
+}
+.target-tag-remove {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: 14px; line-height: 1; padding: 0 2px; font-weight: bold;
+}
+.target-tag-remove:hover { color: var(--red); }
+
+/* View tabs (Scatter vs Boxplots) */
+.view-tabs { display: flex; gap: 8px; border-bottom: 2px solid var(--line); margin: 12px 0 14px; }
+.view-tab {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  margin-bottom: -2px; padding: 8px 14px; font-size: 13.5px; font-weight: 600;
+  color: var(--muted); cursor: pointer; transition: color .2s, border-color .2s;
+}
+.view-tab:hover { color: var(--text); }
+.view-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
 @media (max-width: 720px) {
   .row { flex-direction: column; }
   .layout { padding: 12px; }
   .topbar { padding: 14px; }
+  .view-tabs { overflow-x: auto; white-space: nowrap; }
 }

@@ -185,9 +185,9 @@ def main(argv=None) -> int:
         print(f"Saved JSON to '{args.json_out}'.")
 
     if args.scatter:
-        make, model = targets[0]
-        payload = pw.build_scatter_payload(full, make=make, model=model)
-        pw.save_scatter_html(payload, Path(args.scatter), f"PakWheels: {make} {model}")
+        payload = pw.build_scatter_payload(full, targets=targets)
+        title = f"PakWheels: {pw.comparison_label(targets)}"
+        pw.save_scatter_html(payload, Path(args.scatter), title)
         print(f"Saved interactive chart to '{args.scatter}'.")
 
     return 0
