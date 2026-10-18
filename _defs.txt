@@ -1,0 +1,1 @@
+1514:    columns = [col for col in LISTING_COLUMNS if col in df.columns]

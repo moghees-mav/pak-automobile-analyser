@@ -1,0 +1,22 @@
+{
+  "job_id": "a3702b9e788f",
+  "make": "honda",
+  "model": "city",
+  "pages_requested": null,
+  "pages_available": 230,
+  "pages_done": 20,
+  "listings": 576,
+  "delay_seconds": 2.0,
+  "generated_at": "2026-10-16 16:18:41",
+  "source_url": "https://www.pakwheels.com/used-cars/search/-/mk_honda/md_city/",
+  "estimate": {
+    "total_results": 5728,
+    "pages_to_scrape": 230,
+    "latency_s": 2.08,
+    "eta_seconds": 972.9
+  },
+  "duplicates_dropped": 152,
+  "skipped_no_price": 2,
+  "robots": "https://www.pakwheels.com/robots.txt",
+  "manual_edits": []
+}

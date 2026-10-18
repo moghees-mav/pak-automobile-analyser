@@ -1,0 +1,6 @@
+templates\index.html crlf=180 lf=180 / REAL-NL-TEST
+static\app.js crlf=537 lf=537 OK
+web_app.py crlf=689 lf=689
+pw_scraper.py crlf=1516 lf=1516
+tests\test_parsers.py crlf=399 lf=399
+README.md crlf=183 lf=183

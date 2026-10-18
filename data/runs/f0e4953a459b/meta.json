@@ -1,0 +1,21 @@
+{
+  "job_id": "f0e4953a459b",
+  "make": "honda",
+  "model": "civic",
+  "pages_requested": 3,
+  "pages_available": 320,
+  "pages_done": 3,
+  "listings": 75,
+  "delay_seconds": 2.0,
+  "generated_at": "2026-10-16 03:46:54",
+  "source_url": "https://www.pakwheels.com/used-cars/search/-/mk_honda/md_civic/",
+  "estimate": {
+    "total_results": 7998,
+    "pages_to_scrape": 3,
+    "latency_s": 1.31,
+    "eta_seconds": 10.4
+  },
+  "duplicates_dropped": 15,
+  "skipped_no_price": 0,
+  "robots": "https://www.pakwheels.com/robots.txt"
+}

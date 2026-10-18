@@ -1,0 +1,22 @@
+{
+  "job_id": "9aa27f0aa188",
+  "make": "toyota",
+  "model": "aqua",
+  "pages_requested": null,
+  "pages_available": 19,
+  "pages_done": 19,
+  "listings": 456,
+  "delay_seconds": 4.0,
+  "generated_at": "2026-10-18 01:07:57",
+  "source_url": "https://www.pakwheels.com/used-cars/search/-/mk_toyota/md_aqua/",
+  "estimate": {
+    "total_results": 457,
+    "pages_to_scrape": 19,
+    "latency_s": 1.22,
+    "eta_seconds": 102
+  },
+  "duplicates_dropped": 28,
+  "skipped_no_price": 1,
+  "robots": "https://www.pakwheels.com/robots.txt",
+  "manual_edits": []
+}

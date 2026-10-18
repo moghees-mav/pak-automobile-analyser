@@ -1,0 +1,73 @@
+﻿            "error": self.error,
+            "source_url": self.source_url,
+            "downloads": (
+                {
+                    fmt: f"/api/download/{self.id}/{fmt}"
+                    for fmt in ("csv", "json", "html", "meta")
+                }
+                if self.state == "done"
+                else {}
+            ),
+            "result_url": f"/api/result/{self.id}" if self.state == "done" else None,
+            "preview": self.preview if self.state == "done" else [],
+            "stats": (self.payload or {}).get("stats") if self.payload else None,
+        }
+
+
+class JobManager:
+    """In-memory job registry (single-process local app, one scrape at a time)."""
+
+    def __init__(self) -> None:
+        self._jobs: dict[str, Job] = {}
+        self._lock = threading.Lock()
+        self.active_id: Optional[str] = None
+
+    def create(
+        self,
+        make: str,
+        model: str,
+        pages: Optional[int],
+        delay: float,
+        pages_available: Optional[int],
+        estimate: dict,
+    ) -> Job:
+        job = Job(
+            id=uuid.uuid4().hex[:12],
+            make=make,
+            model=model,
+            pages=pages,
+            delay=max(float(delay), pw.MIN_DELAY),
+            pages_available=pages_available,
+            estimate=estimate or {},
+        )
+        with self._lock:
+            self._jobs[job.id] = job
+            self._prune_locked()
+        logger.info("Job %s created (%s %s, pages=%s)", job.id, make, model, pages)
+        return job
+
+    def _prune_locked(self) -> None:
+        if len(self._jobs) <= MAX_JOBS_KEPT:
+            return
+        ordered = sorted(self._jobs.values(), key=lambda job: job.created_at)
+        for stale in ordered[: len(self._jobs) - MAX_JOBS_KEPT]:
+            if stale.state in ("done", "error", "cancelled"):
+                self._jobs.pop(stale.id, None)
+
+    def get(self, job_id: str) -> Optional[Job]:
+        with self._lock:
+            return self._jobs.get(job_id)
+
+    def list(self, limit: int = 10) -> list[Job]:
+        with self._lock:
+            jobs = sorted(self._jobs.values(), key=lambda job: job.created_at, reverse=True)
+        return jobs[:limit]
+
+    def claim(self, job_id: str) -> bool:
+        """Reserve the single scrape slot for *job_id*."""
+        with self._lock:
+            if self.active_id and self._jobs.get(self.active_id, None) is not None:
+                active = self._jobs[self.active_id]
+                if active.state in ("pending", "running"):
+                    return False
+            self.active_id = job_id

@@ -1,0 +1,21 @@
+{
+  "job_id": "c40dafeb3125",
+  "make": "changan",
+  "model": "alsvin",
+  "pages_requested": 10,
+  "pages_available": 15,
+  "pages_done": 10,
+  "listings": 253,
+  "delay_seconds": 4.0,
+  "generated_at": "2026-10-16 04:10:14",
+  "source_url": "https://www.pakwheels.com/used-cars/search/-/mk_changan/md_alsvin/",
+  "estimate": {
+    "total_results": 355,
+    "pages_to_scrape": 10,
+    "latency_s": 1.14,
+    "eta_seconds": 52.9
+  },
+  "duplicates_dropped": 17,
+  "skipped_no_price": 0,
+  "robots": "https://www.pakwheels.com/robots.txt"
+}

@@ -1,0 +1,60 @@
+{
+  "job_id": "30830f4b05ab",
+  "make": "toyota",
+  "model": "prius",
+  "targets": [
+    {
+      "make": "toyota",
+      "model": "prius",
+      "make_model": "Toyota Prius",
+      "listings": 503
+    }
+  ],
+  "pages_requested": 20,
+  "pages_available": 24,
+  "pages_done": 20,
+  "listings": 503,
+  "delay_seconds": 2.0,
+  "generated_at": "2026-10-18 14:00:26",
+  "source_url": "https://www.pakwheels.com/used-cars/search/-/mk_toyota/md_prius/",
+  "estimate": {
+    "total_results": 588,
+    "pages_to_scrape": 24,
+    "latency_s": 1.8,
+    "eta_seconds": 94.8
+  },
+  "duplicates_dropped": 71,
+  "skipped_no_price": 2,
+  "robots": "https://www.pakwheels.com/robots.txt",
+  "manual_edits": [
+    {
+      "at": "2026-10-18 14:03:26",
+      "listing_id": "12108621",
+      "field": "year",
+      "from": 2014,
+      "to": 2008
+    },
+    {
+      "at": "2026-10-18 14:04:37",
+      "listing_id": "12105973",
+      "field": "year",
+      "from": 2026,
+      "to": 2009
+    },
+    {
+      "at": "2026-10-18 14:05:53",
+      "listing_id": "12103762",
+      "field": "year",
+      "from": 2022,
+      "to": 2012
+    }
+  ],
+  "comparison": false,
+  "make_model": "Toyota Prius",
+  "make_models": [
+    "Toyota Prius"
+  ],
+  "make_model_counts": {
+    "Toyota Prius": 503
+  }
+}

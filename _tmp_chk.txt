@@ -1,0 +1,7 @@
+specs 12
+{'key': 'year', 'label': 'Model year', 'type': 'int', 'min': 1950, 'max': 2049, 'required': False}
+{'key': 'is_featured', 'label': 'Featured ad', 'type': 'bool'}
+bom b'/* '
+emdash 3 ellipsis 7 middot 2
+v24.14.1
+node rc=0

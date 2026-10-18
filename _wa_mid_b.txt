@@ -1,0 +1,242 @@
+﻿                "source_url": meta["source_url"],
+                "pages_scraped": job.pages_done,
+                "job_id": job.id,
+            },
+        )
+        job.payload = payload
+        job.preview = pw.dataframe_preview(frame, limit=25)
+
+        run_dir = pw.new_run_dir(job.id)
+        paths = pw.save_run(frame, meta, run_dir)
+        paths["html"] = str(pw.save_scatter_html(payload, run_dir / "scatter.html", title))
+        job.files = paths
+        job.state = "done"
+        logger.info("Job %s finished with %d listings", job.id, len(frame))
+    except pw.JobCancelled:
+        job.state = "cancelled"
+        job.ingest({"stage": "stopped", "message": "Cancelled by user"})
+        logger.info("Job %s cancelled", job.id)
+    except Exception as exc:  # noqa: BLE001 - surfaced in the UI instead of crashing
+        logger.exception("Job %s failed", job.id)
+        job.state = "error"
+        job.error = f"{type(exc).__name__}: {exc}"
+    finally:
+        session.close()
+        job.finished_at = time.time()
+        manager.release(job.id)
+
+
+def start_job(job: Job) -> Job:
+    """Run an already-created (and claimed) job on a daemon thread."""
+    thread = threading.Thread(target=run_job, args=(job,), name=f"scrape-{job.id}", daemon=True)
+    thread.start()
+    return job
+
+
+# --------------------------------------------------------------------------- #
+# Request helpers
+# --------------------------------------------------------------------------- #
+
+PAGES_ALL = ("all", "none", "max", "")
+SLUG_RE = re.compile(r"^[a-z0-9\-]+$")
+
+
+def api_error(message: str, status: int = 400, **extra):
+    """Uniform JSON error response (extra keys are merged into the body)."""
+    payload = {"error": message}
+    payload.update(extra)
+    return jsonify(payload), status
+
+
+def _parse_request_payload() -> tuple[str, str, Optional[int], float]:
+    """Validate and normalise the JSON/form body sent by the UI."""
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    make = str(data.get("make") or "").strip().lower().replace(" ", "-")
+    model = str(data.get("model") or "").strip().lower().replace(" ", "-")
+
+    if not make or not model:
+        raise ValueError("Both 'make' and 'model' are required.")
+    if not SLUG_RE.match(make) or not SLUG_RE.match(model):
+        raise ValueError("Make/model may only contain letters, digits and hyphens.")
+
+    try:
+        delay = max(float(data.get("delay") or pw.DEFAULT_DELAY), pw.MIN_DELAY)
+    except (TypeError, ValueError):
+        raise ValueError("'delay' must be a number of seconds.")
+
+    raw_pages = data.get("pages", pw.DEFAULT_PAGES)
+    if raw_pages is None or str(raw_pages).strip().lower() in PAGES_ALL:
+        pages: Optional[int] = None
+    else:
+        try:
+            pages = int(raw_pages)
+        except (TypeError, ValueError):
+            raise ValueError("'pages' must be a whole number, or 'all'.")
+        if pages < 1:
+            raise ValueError("'pages' must be at least 1.")
+        pages = min(pages, pw.MAX_PAGES_CAP)
+
+    return make, model, pages, delay
+
+
+# --------------------------------------------------------------------------- #
+# Routes
+# --------------------------------------------------------------------------- #
+
+
+@app.get("/")
+def index():
+    config = pw.load_config()
+    return render_template(
+        "index.html",
+        default_delay=max(
+            float(config.get("default_delay_seconds", pw.DEFAULT_DELAY)), pw.MIN_DELAY
+        ),
+        default_pages=int(config.get("default_pages", pw.DEFAULT_PAGES)),
+        max_pages=int(config.get("max_pages_cap", pw.MAX_PAGES_CAP)),
+        min_delay=pw.MIN_DELAY,
+        catalogue_source=(config.get("catalogue") or {}).get("source"),
+    )
+
+
+@app.get("/api/catalogue")
+def api_catalogue():
+    """Make/model catalogue (cached in config.json for 7 days by default)."""
+    refresh = str(request.args.get("refresh", "")).lower() in ("1", "true", "yes")
+    session = pw.PoliteSession()
+    try:
+        catalogue = pw.fetch_catalogue(session=session, refresh=refresh)
+    except Exception as exc:  # noqa: BLE001 - reported to the UI
+        logger.exception("Catalogue fetch failed")
+        return api_error(f"Catalogue unavailable: {exc}", 502)
+    finally:
+        session.close()
+
+    makes = catalogue.get("makes", [])
+    return jsonify(
+        {
+            "makes": makes,
+            "built_at": catalogue.get("built_at"),
+            "source": catalogue.get("source", "cache"),
+            "total_models": sum(len(make["models"]) for make in makes),
+        }
+    )
+
+
+@app.post("/api/estimate")
+def api_estimate():
+    """Fetch page 1 once and return the results count + a measured ETA."""
+    try:
+        make, model, pages, delay = _parse_request_payload()
+    except ValueError as exc:
+        return api_error(str(exc))
+
+    session = pw.PoliteSession(delay=delay)
+    try:
+        url = pw.search_url(make, model)
+        result = session.get(url)
+        if result.status_code == 200:
+            cache_first_page(make, model, result)  # reused by /api/scrape
+        estimate = pw.estimate_scrape(
+            session=session,
+            make=make,
+            model=model,
+            max_pages=pages,
+            delay=delay,
+            sample_size=5,
+            first_page=result,
+        )
+    except pw.RobotsDisallowed as exc:
+        return api_error(f"Blocked by the robots.txt policy guard: {exc}", 403)
+    except pw.FetchError as exc:
+        return api_error(f"Could not reach PakWheels: {exc}", 502)
+    finally:
+        session.close()
+
+    payload = estimate.to_dict()
+    payload["finish_at_iso"] = datetime.fromtimestamp(payload["finish_at"]).strftime("%H:%M:%S")
+    payload["started_at_iso"] = datetime.now().strftime("%H:%M:%S")
+    payload["min_delay"] = pw.MIN_DELAY
+    payload["max_pages"] = pw.MAX_PAGES_CAP
+    return jsonify(payload)
+
+
+@app.post("/api/scrape")
+def api_scrape():
+    """Start a background scrape (only one job at a time - politeness first)."""
+    try:
+        make, model, pages, delay = _parse_request_payload()
+    except ValueError as exc:
+        return api_error(str(exc))
+
+    active = manager.active_job()
+    if active:
+        return api_error(
+            f"Job {active.id} ({active.make} {active.model}) is still running. "
+            "Cancel it or wait for it to finish.",
+            409,
+            active_job=active.id,
+        )
+
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    estimate = data.get("estimate") if isinstance(data.get("estimate"), dict) else {}
+
+    pages_available: Optional[int] = None
+    raw_available = data.get("pages_available")
+    if raw_available not in (None, "", "null", "None"):
+        try:
+            pages_available = int(raw_available)
+        except (TypeError, ValueError):
+            pages_available = None
+    if pages_available is not None and pages_available < 1:
+        pages_available = None
+
+    job = manager.create(make, model, pages, delay, pages_available, estimate)
+    if not manager.claim(job.id):
+        return api_error("Another scrape is already running.", 409)
+    start_job(job)
+    return jsonify(job.snapshot()), 202
+
+
+@app.get("/api/job/<job_id>")
+def api_job(job_id: str):
+    job = manager.get(job_id)
+    if not job:
+        return api_error("Unknown job id.", 404)
+    log_limit = request.args.get("log", default=25, type=int) or 25
+    return jsonify(job.snapshot(log_limit=max(1, min(log_limit, 200))))
+
+
+@app.get("/api/jobs")
+def api_jobs():
+    return jsonify(
+        {
+            "active": (manager.active_job().id if manager.active_job() else None),
+            "jobs": [
+                {
+                    "id": job.id,
+                    "make": job.make,
+                    "model": job.model,
+                    "state": job.state,
+                    "listings": job.listings,
+                    "created_at": datetime.fromtimestamp(job.created_at).strftime("%H:%M:%S"),
+                    "result_url": f"/api/result/{job.id}" if job.state == "done" else None,
+                }
+                for job in manager.list(limit=10)
+            ],
+        }
+    )
+
+
+@app.get("/api/result/<job_id>")
+def api_result(job_id: str):
+    job = manager.get(job_id)
+    if not job:
+        return api_error("Unknown job id.", 404)
+    if job.state != "done" or not job.payload:
+        return api_error(f"Job is '{job.state}'; results are not ready yet.", 409)
+    return jsonify(job.payload)
+
+
+@app.get("/api/download/<job_id>/<fmt>")
+def api_download(job_id: str, fmt: str):

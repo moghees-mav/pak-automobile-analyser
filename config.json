@@ -1,0 +1,893 @@
+{
+  "default_delay_seconds": 2.0,
+  "default_pages": 5,
+  "max_pages_cap": 20,
+  "catalogue_ttl_days": 7,
+  "catalogue": {
+    "makes": [
+      {
+        "name": "Audi",
+        "slug": "audi",
+        "models": [
+          {
+            "name": "A3",
+            "slug": "a3",
+            "full_slug": "audi-a3",
+            "path": "/used-cars/audi-a3/60876"
+          },
+          {
+            "name": "A4",
+            "slug": "a4",
+            "full_slug": "audi-a4",
+            "path": "/used-cars/audi-a4/819"
+          },
+          {
+            "name": "A5",
+            "slug": "a5",
+            "full_slug": "audi-a5",
+            "path": "/used-cars/audi-a5/910"
+          },
+          {
+            "name": "A6",
+            "slug": "a6",
+            "full_slug": "audi-a6",
+            "path": "/used-cars/audi-a6/820"
+          },
+          {
+            "name": "A7",
+            "slug": "a7",
+            "full_slug": "audi-a7",
+            "path": "/used-cars/audi-a7/911"
+          },
+          {
+            "name": "E Tron",
+            "slug": "e-tron",
+            "full_slug": "audi-e-tron",
+            "path": "/used-cars/audi-e-tron/452213"
+          },
+          {
+            "name": "E Tron Gt",
+            "slug": "e-tron-gt",
+            "full_slug": "audi-e-tron-gt",
+            "path": "/used-cars/audi-e-tron-gt/778676"
+          },
+          {
+            "name": "Q2",
+            "slug": "q2",
+            "full_slug": "audi-q2",
+            "path": "/used-cars/audi-q2/131263"
+          },
+          {
+            "name": "Q3",
+            "slug": "q3",
+            "full_slug": "audi-q3",
+            "path": "/used-cars/audi-q3/60881"
+          },
+          {
+            "name": "Q7",
+            "slug": "q7",
+            "full_slug": "audi-q7",
+            "path": "/used-cars/audi-q7/821"
+          }
+        ]
+      },
+      {
+        "name": "Byd",
+        "slug": "byd",
+        "models": [
+          {
+            "name": "Atto 2",
+            "slug": "atto-2",
+            "full_slug": "byd-atto-2",
+            "path": "/used-cars/byd-atto-2/3086622"
+          },
+          {
+            "name": "Atto 3",
+            "slug": "atto-3",
+            "full_slug": "byd-atto-3",
+            "path": "/used-cars/byd-atto-3/2811654"
+          },
+          {
+            "name": "Seal",
+            "slug": "seal",
+            "full_slug": "byd-seal",
+            "path": "/used-cars/byd-seal/2785033"
+          },
+          {
+            "name": "Sealion 7",
+            "slug": "sealion-7",
+            "full_slug": "byd-sealion-7",
+            "path": "/used-cars/byd-sealion-7/3069185"
+          },
+          {
+            "name": "Shark",
+            "slug": "shark",
+            "full_slug": "byd-shark",
+            "path": "/used-cars/byd-shark/2983312"
+          }
+        ]
+      },
+      {
+        "name": "Changan",
+        "slug": "changan",
+        "models": [
+          {
+            "name": "Alsvin",
+            "slug": "alsvin",
+            "full_slug": "changan-alsvin",
+            "path": "/used-cars/changan-alsvin/641668"
+          },
+          {
+            "name": "Chitral",
+            "slug": "chitral",
+            "full_slug": "changan-chitral",
+            "path": "/used-cars/changan-chitral/28771"
+          },
+          {
+            "name": "Cx70t",
+            "slug": "cx70t",
+            "full_slug": "changan-cx70t",
+            "path": "/used-cars/changan-cx70t/328546"
+          },
+          {
+            "name": "Gilgit",
+            "slug": "gilgit",
+            "full_slug": "changan-gilgit",
+            "path": "/used-cars/changan-gilgit/775"
+          },
+          {
+            "name": "Kaghan",
+            "slug": "kaghan",
+            "full_slug": "changan-kaghan",
+            "path": "/used-cars/changan-kaghan/915"
+          },
+          {
+            "name": "Kalam",
+            "slug": "kalam",
+            "full_slug": "changan-kalam",
+            "path": "/used-cars/changan-kalam/776"
+          },
+          {
+            "name": "Kalash",
+            "slug": "kalash",
+            "full_slug": "changan-kalash",
+            "path": "/used-cars/changan-kalash/774"
+          },
+          {
+            "name": "Karvaan",
+            "slug": "karvaan",
+            "full_slug": "changan-karvaan",
+            "path": "/used-cars/changan-karvaan/313798"
+          },
+          {
+            "name": "M9",
+            "slug": "m9",
+            "full_slug": "changan-m9",
+            "path": "/used-cars/changan-m9/313814"
+          },
+          {
+            "name": "Oshan X7",
+            "slug": "oshan-x7",
+            "full_slug": "changan-oshan-x7",
+            "path": "/used-cars/changan-oshan-x7/844463"
+          }
+        ]
+      },
+      {
+        "name": "Daihatsu",
+        "slug": "daihatsu",
+        "models": [
+          {
+            "name": "Boon",
+            "slug": "boon",
+            "full_slug": "daihatsu-boon",
+            "path": "/used-cars/daihatsu-boon/861"
+          },
+          {
+            "name": "Charade",
+            "slug": "charade",
+            "full_slug": "daihatsu-charade",
+            "path": "/used-cars/daihatsu-charade/716"
+          },
+          {
+            "name": "Cuore",
+            "slug": "cuore",
+            "full_slug": "daihatsu-cuore",
+            "path": "/used-cars/daihatsu-cuore/665"
+          },
+          {
+            "name": "Hijet Van",
+            "slug": "hijet-van",
+            "full_slug": "daihatsu-hijet-van",
+            "path": "/used-cars/daihatsu-hijet-van/857"
+          },
+          {
+            "name": "Mira",
+            "slug": "mira",
+            "full_slug": "daihatsu-mira",
+            "path": "/used-cars/daihatsu-mira/788"
+          },
+          {
+            "name": "Move",
+            "slug": "move",
+            "full_slug": "daihatsu-move",
+            "path": "/used-cars/daihatsu-move/800"
+          },
+          {
+            "name": "Rocky",
+            "slug": "rocky",
+            "full_slug": "daihatsu-rocky",
+            "path": "/used-cars/daihatsu-rocky/28770"
+          },
+          {
+            "name": "Taft",
+            "slug": "taft",
+            "full_slug": "daihatsu-taft",
+            "path": "/used-cars/daihatsu-taft/667694"
+          },
+          {
+            "name": "Tanto",
+            "slug": "tanto",
+            "full_slug": "daihatsu-tanto",
+            "path": "/used-cars/daihatsu-tanto/889"
+          },
+          {
+            "name": "Terios Kid",
+            "slug": "terios-kid",
+            "full_slug": "daihatsu-terios-kid",
+            "path": "/used-cars/daihatsu-terios-kid/794"
+          }
+        ]
+      },
+      {
+        "name": "Haval",
+        "slug": "haval",
+        "models": [
+          {
+            "name": "H6",
+            "slug": "h6",
+            "full_slug": "haval-h6",
+            "path": "/used-cars/haval-h6/721544"
+          },
+          {
+            "name": "Jolion",
+            "slug": "jolion",
+            "full_slug": "haval-jolion",
+            "path": "/used-cars/haval-jolion/714593"
+          }
+        ]
+      },
+      {
+        "name": "Honda",
+        "slug": "honda",
+        "models": [
+          {
+            "name": "Accord",
+            "slug": "accord",
+            "full_slug": "honda-accord",
+            "path": "/used-cars/honda-accord/644"
+          },
+          {
+            "name": "Br V",
+            "slug": "br-v",
+            "full_slug": "honda-br-v",
+            "path": "/used-cars/honda-br-v/108800"
+          },
+          {
+            "name": "City",
+            "slug": "city",
+            "full_slug": "honda-city",
+            "path": "/used-cars/honda-city/664"
+          },
+          {
+            "name": "Civic",
+            "slug": "civic",
+            "full_slug": "honda-civic",
+            "path": "/used-cars/honda-civic/642"
+          },
+          {
+            "name": "Fit",
+            "slug": "fit",
+            "full_slug": "honda-fit",
+            "path": "/used-cars/honda-fit/852"
+          },
+          {
+            "name": "Hr V",
+            "slug": "hr-v",
+            "full_slug": "honda-hr-v",
+            "path": "/used-cars/honda-hr-v/994"
+          },
+          {
+            "name": "N Box",
+            "slug": "n-box",
+            "full_slug": "honda-n-box",
+            "path": "/used-cars/honda-n-box/29015"
+          },
+          {
+            "name": "N Wgn",
+            "slug": "n-wgn",
+            "full_slug": "honda-n-wgn",
+            "path": "/used-cars/honda-n-wgn/61510"
+          },
+          {
+            "name": "None",
+            "slug": "none",
+            "full_slug": "honda-none",
+            "path": "/used-cars/honda-none/956"
+          },
+          {
+            "name": "Vezel",
+            "slug": "vezel",
+            "full_slug": "honda-vezel",
+            "path": "/used-cars/honda-vezel/57545"
+          }
+        ]
+      },
+      {
+        "name": "Hyundai",
+        "slug": "hyundai",
+        "models": [
+          {
+            "name": "Elantra",
+            "slug": "elantra",
+            "full_slug": "hyundai-elantra",
+            "path": "/used-cars/hyundai-elantra/61596"
+          },
+          {
+            "name": "Excel",
+            "slug": "excel",
+            "full_slug": "hyundai-excel",
+            "path": "/used-cars/hyundai-excel/695"
+          },
+          {
+            "name": "H 100",
+            "slug": "h-100",
+            "full_slug": "hyundai-h-100",
+            "path": "/used-cars/hyundai-h-100/233948"
+          },
+          {
+            "name": "Palisade",
+            "slug": "palisade",
+            "full_slug": "hyundai-palisade",
+            "path": "/used-cars/hyundai-palisade/3230191"
+          },
+          {
+            "name": "Santa Fe",
+            "slug": "santa-fe",
+            "full_slug": "hyundai-santa-fe",
+            "path": "/used-cars/hyundai-santa-fe/61388"
+          },
+          {
+            "name": "Santro",
+            "slug": "santro",
+            "full_slug": "hyundai-santro",
+            "path": "/used-cars/hyundai-santro/668"
+          },
+          {
+            "name": "Shehzore",
+            "slug": "shehzore",
+            "full_slug": "hyundai-shehzore",
+            "path": "/used-cars/hyundai-shehzore/696"
+          },
+          {
+            "name": "Sonata",
+            "slug": "sonata",
+            "full_slug": "hyundai-sonata",
+            "path": "/used-cars/hyundai-sonata/818"
+          },
+          {
+            "name": "Terracan",
+            "slug": "terracan",
+            "full_slug": "hyundai-terracan",
+            "path": "/used-cars/hyundai-terracan/40651"
+          },
+          {
+            "name": "Tucson",
+            "slug": "tucson",
+            "full_slug": "hyundai-tucson",
+            "path": "/used-cars/hyundai-tucson/152344"
+          }
+        ]
+      },
+      {
+        "name": "Jaecoo",
+        "slug": "jaecoo",
+        "models": [
+          {
+            "name": "J5",
+            "slug": "j5",
+            "full_slug": "jaecoo-j5",
+            "path": "/used-cars/jaecoo-j5/3067130"
+          },
+          {
+            "name": "J5 Ev",
+            "slug": "j5-ev",
+            "full_slug": "jaecoo-j5-ev",
+            "path": "/used-cars/jaecoo-j5-ev/3317116"
+          },
+          {
+            "name": "J6",
+            "slug": "j6",
+            "full_slug": "jaecoo-j6",
+            "path": "/used-cars/jaecoo-j6/2981436"
+          },
+          {
+            "name": "J7",
+            "slug": "j7",
+            "full_slug": "jaecoo-j7",
+            "path": "/used-cars/jaecoo-j7/2992067"
+          }
+        ]
+      },
+      {
+        "name": "Kia",
+        "slug": "kia",
+        "models": [
+          {
+            "name": "Carnival",
+            "slug": "carnival",
+            "full_slug": "kia-carnival",
+            "path": "/used-cars/kia-carnival/206077"
+          },
+          {
+            "name": "Classic",
+            "slug": "classic",
+            "full_slug": "kia-classic",
+            "path": "/used-cars/kia-classic/666"
+          },
+          {
+            "name": "Ev5",
+            "slug": "ev5",
+            "full_slug": "kia-ev5",
+            "path": "/used-cars/kia-ev5/2829161"
+          },
+          {
+            "name": "Picanto",
+            "slug": "picanto",
+            "full_slug": "kia-picanto",
+            "path": "/used-cars/kia-picanto/51368"
+          },
+          {
+            "name": "Pride",
+            "slug": "pride",
+            "full_slug": "kia-pride",
+            "path": "/used-cars/kia-pride/697"
+          },
+          {
+            "name": "Sorento",
+            "slug": "sorento",
+            "full_slug": "kia-sorento",
+            "path": "/used-cars/kia-sorento/660713"
+          },
+          {
+            "name": "Spectra",
+            "slug": "spectra",
+            "full_slug": "kia-spectra",
+            "path": "/used-cars/kia-spectra/667"
+          },
+          {
+            "name": "Sportage",
+            "slug": "sportage",
+            "full_slug": "kia-sportage",
+            "path": "/used-cars/kia-sportage/715"
+          },
+          {
+            "name": "Sportage L",
+            "slug": "sportage-l",
+            "full_slug": "kia-sportage-l",
+            "path": "/used-cars/kia-sportage-l/2882984"
+          },
+          {
+            "name": "Stonic",
+            "slug": "stonic",
+            "full_slug": "kia-stonic",
+            "path": "/used-cars/kia-stonic/777495"
+          }
+        ]
+      },
+      {
+        "name": "Mercedes Benz",
+        "slug": "mercedes-benz",
+        "models": [
+          {
+            "name": "A Class",
+            "slug": "a-class",
+            "full_slug": "mercedes-benz-a-class",
+            "path": "/used-cars/mercedes-benz-a-class/747"
+          },
+          {
+            "name": "C Class",
+            "slug": "c-class",
+            "full_slug": "mercedes-benz-c-class",
+            "path": "/used-cars/mercedes-benz-c-class/745"
+          },
+          {
+            "name": "C Class Cabriolet",
+            "slug": "c-class-cabriolet",
+            "full_slug": "mercedes-benz-c-class-cabriolet",
+            "path": "/used-cars/mercedes-benz-c-class-cabriolet/2837957"
+          },
+          {
+            "name": "Cla Class",
+            "slug": "cla-class",
+            "full_slug": "mercedes-benz-cla-class",
+            "path": "/used-cars/mercedes-benz-cla-class/61396"
+          },
+          {
+            "name": "Clk Class",
+            "slug": "clk-class",
+            "full_slug": "mercedes-benz-clk-class",
+            "path": "/used-cars/mercedes-benz-clk-class/746"
+          },
+          {
+            "name": "E Class",
+            "slug": "e-class",
+            "full_slug": "mercedes-benz-e-class",
+            "path": "/used-cars/mercedes-benz-e-class/744"
+          },
+          {
+            "name": "E Class Cabriolet",
+            "slug": "e-class-cabriolet",
+            "full_slug": "mercedes-benz-e-class-cabriolet",
+            "path": "/used-cars/mercedes-benz-e-class-cabriolet/36258"
+          },
+          {
+            "name": "Eqc",
+            "slug": "eqc",
+            "full_slug": "mercedes-benz-eqc",
+            "path": "/used-cars/mercedes-benz-eqc/2428601"
+          },
+          {
+            "name": "G Class",
+            "slug": "g-class",
+            "full_slug": "mercedes-benz-g-class",
+            "path": "/used-cars/mercedes-benz-g-class/35443"
+          },
+          {
+            "name": "S Class",
+            "slug": "s-class",
+            "full_slug": "mercedes-benz-s-class",
+            "path": "/used-cars/mercedes-benz-s-class/743"
+          }
+        ]
+      },
+      {
+        "name": "Mg",
+        "slug": "mg",
+        "models": [
+          {
+            "name": "3",
+            "slug": "3",
+            "full_slug": "mg-3",
+            "path": "/used-cars/mg-3/812660"
+          },
+          {
+            "name": "4",
+            "slug": "4",
+            "full_slug": "mg-4",
+            "path": "/used-cars/mg-4/2651695"
+          },
+          {
+            "name": "5 Ev",
+            "slug": "5-ev",
+            "full_slug": "mg-5-ev",
+            "path": "/used-cars/mg-5-ev/2684489"
+          },
+          {
+            "name": "Binguo",
+            "slug": "binguo",
+            "full_slug": "mg-binguo",
+            "path": "/used-cars/mg-binguo/3169424"
+          },
+          {
+            "name": "Cyberster",
+            "slug": "cyberster",
+            "full_slug": "mg-cyberster",
+            "path": "/used-cars/mg-cyberster/2832776"
+          },
+          {
+            "name": "Ep",
+            "slug": "ep",
+            "full_slug": "mg-ep",
+            "path": "/used-cars/mg-ep/2523869"
+          },
+          {
+            "name": "Hs 2",
+            "slug": "hs--2",
+            "full_slug": "mg-hs--2",
+            "path": "/used-cars/mg-hs--2/612997"
+          },
+          {
+            "name": "U9 2",
+            "slug": "u9--2",
+            "full_slug": "mg-u9--2",
+            "path": "/used-cars/mg-u9--2/3087057"
+          },
+          {
+            "name": "Zs",
+            "slug": "zs",
+            "full_slug": "mg-zs",
+            "path": "/used-cars/mg-zs/635218"
+          },
+          {
+            "name": "Zs Ev",
+            "slug": "zs-ev",
+            "full_slug": "mg-zs-ev",
+            "path": "/used-cars/mg-zs-ev/590258"
+          }
+        ]
+      },
+      {
+        "name": "Mitsubishi",
+        "slug": "mitsubishi",
+        "models": [
+          {
+            "name": "Ek Custom",
+            "slug": "ek-custom",
+            "full_slug": "mitsubishi-ek-custom",
+            "path": "/used-cars/mitsubishi-ek-custom/63959"
+          },
+          {
+            "name": "Ek Wagon",
+            "slug": "ek-wagon",
+            "full_slug": "mitsubishi-ek-wagon",
+            "path": "/used-cars/mitsubishi-ek-wagon/856"
+          },
+          {
+            "name": "Ek X",
+            "slug": "ek-x",
+            "full_slug": "mitsubishi-ek-x",
+            "path": "/used-cars/mitsubishi-ek-x/785660"
+          },
+          {
+            "name": "Galant",
+            "slug": "galant",
+            "full_slug": "mitsubishi-galant",
+            "path": "/used-cars/mitsubishi-galant/702"
+          },
+          {
+            "name": "Lancer",
+            "slug": "lancer",
+            "full_slug": "mitsubishi-lancer",
+            "path": "/used-cars/mitsubishi-lancer/704"
+          },
+          {
+            "name": "Minica",
+            "slug": "minica",
+            "full_slug": "mitsubishi-minica",
+            "path": "/used-cars/mitsubishi-minica/891"
+          },
+          {
+            "name": "Minicab Bravo",
+            "slug": "minicab-bravo",
+            "full_slug": "mitsubishi-minicab-bravo",
+            "path": "/used-cars/mitsubishi-minicab-bravo/933"
+          },
+          {
+            "name": "Mirage",
+            "slug": "mirage",
+            "full_slug": "mitsubishi-mirage",
+            "path": "/used-cars/mitsubishi-mirage/988"
+          },
+          {
+            "name": "Pajero",
+            "slug": "pajero",
+            "full_slug": "mitsubishi-pajero",
+            "path": "/used-cars/mitsubishi-pajero/703"
+          },
+          {
+            "name": "Pajero Mini",
+            "slug": "pajero-mini",
+            "full_slug": "mitsubishi-pajero-mini",
+            "path": "/used-cars/mitsubishi-pajero-mini/786"
+          }
+        ]
+      },
+      {
+        "name": "Nissan",
+        "slug": "nissan",
+        "models": [
+          {
+            "name": "Ad Van",
+            "slug": "ad-van",
+            "full_slug": "nissan-ad-van",
+            "path": "/used-cars/nissan-ad-van/855"
+          },
+          {
+            "name": "Clipper",
+            "slug": "clipper",
+            "full_slug": "nissan-clipper",
+            "path": "/used-cars/nissan-clipper/874"
+          },
+          {
+            "name": "Dayz",
+            "slug": "dayz",
+            "full_slug": "nissan-dayz",
+            "path": "/used-cars/nissan-dayz/57410"
+          },
+          {
+            "name": "Juke",
+            "slug": "juke",
+            "full_slug": "nissan-juke",
+            "path": "/used-cars/nissan-juke/887"
+          },
+          {
+            "name": "Kicks",
+            "slug": "kicks",
+            "full_slug": "nissan-kicks",
+            "path": "/used-cars/nissan-kicks/841081"
+          },
+          {
+            "name": "Leaf",
+            "slug": "leaf",
+            "full_slug": "nissan-leaf",
+            "path": "/used-cars/nissan-leaf/102848"
+          },
+          {
+            "name": "Moco",
+            "slug": "moco",
+            "full_slug": "nissan-moco",
+            "path": "/used-cars/nissan-moco/886"
+          },
+          {
+            "name": "Note",
+            "slug": "note",
+            "full_slug": "nissan-note",
+            "path": "/used-cars/nissan-note/885"
+          },
+          {
+            "name": "Roox",
+            "slug": "roox",
+            "full_slug": "nissan-roox",
+            "path": "/used-cars/nissan-roox/29016"
+          },
+          {
+            "name": "Sunny",
+            "slug": "sunny",
+            "full_slug": "nissan-sunny",
+            "path": "/used-cars/nissan-sunny/710"
+          }
+        ]
+      },
+      {
+        "name": "Suzuki",
+        "slug": "suzuki",
+        "models": [
+          {
+            "name": "Alto",
+            "slug": "alto",
+            "full_slug": "suzuki-alto",
+            "path": "/used-cars/suzuki-alto/658"
+          },
+          {
+            "name": "Baleno",
+            "slug": "baleno",
+            "full_slug": "suzuki-baleno",
+            "path": "/used-cars/suzuki-baleno/659"
+          },
+          {
+            "name": "Bolan",
+            "slug": "bolan",
+            "full_slug": "suzuki-bolan",
+            "path": "/used-cars/suzuki-bolan/693"
+          },
+          {
+            "name": "Cultus",
+            "slug": "cultus",
+            "full_slug": "suzuki-cultus",
+            "path": "/used-cars/suzuki-cultus/660"
+          },
+          {
+            "name": "Every",
+            "slug": "every",
+            "full_slug": "suzuki-every",
+            "path": "/used-cars/suzuki-every/878"
+          },
+          {
+            "name": "Khyber",
+            "slug": "khyber",
+            "full_slug": "suzuki-khyber",
+            "path": "/used-cars/suzuki-khyber/698"
+          },
+          {
+            "name": "Liana",
+            "slug": "liana",
+            "full_slug": "suzuki-liana",
+            "path": "/used-cars/suzuki-liana/763"
+          },
+          {
+            "name": "Mehran",
+            "slug": "mehran",
+            "full_slug": "suzuki-mehran",
+            "path": "/used-cars/suzuki-mehran/661"
+          },
+          {
+            "name": "Swift",
+            "slug": "swift",
+            "full_slug": "suzuki-swift",
+            "path": "/used-cars/suzuki-swift/778"
+          },
+          {
+            "name": "Wagon R",
+            "slug": "wagon-r",
+            "full_slug": "suzuki-wagon-r",
+            "path": "/used-cars/suzuki-wagon-r/801"
+          }
+        ]
+      },
+      {
+        "name": "Toyota",
+        "slug": "toyota",
+        "models": [
+          {
+            "name": "Corolla",
+            "slug": "corolla",
+            "full_slug": "toyota-corolla",
+            "path": "/used-cars/toyota-corolla/688"
+          },
+          {
+            "name": "Fortuner",
+            "slug": "fortuner",
+            "full_slug": "toyota-fortuner",
+            "path": "/used-cars/toyota-fortuner/833"
+          },
+          {
+            "name": "Hilux",
+            "slug": "hilux",
+            "full_slug": "toyota-hilux",
+            "path": "/used-cars/toyota-hilux/789"
+          },
+          {
+            "name": "Land Cruiser",
+            "slug": "land-cruiser",
+            "full_slug": "toyota-land-cruiser",
+            "path": "/used-cars/toyota-land-cruiser/651"
+          },
+          {
+            "name": "Passo",
+            "slug": "passo",
+            "full_slug": "toyota-passo",
+            "path": "/used-cars/toyota-passo/803"
+          },
+          {
+            "name": "Prado",
+            "slug": "prado",
+            "full_slug": "toyota-prado",
+            "path": "/used-cars/toyota-prado/38678"
+          },
+          {
+            "name": "Prius",
+            "slug": "prius",
+            "full_slug": "toyota-prius",
+            "path": "/used-cars/toyota-prius/836"
+          },
+          {
+            "name": "Raize",
+            "slug": "raize",
+            "full_slug": "toyota-raize",
+            "path": "/used-cars/toyota-raize/619367"
+          },
+          {
+            "name": "Vitz",
+            "slug": "vitz",
+            "full_slug": "toyota-vitz",
+            "path": "/used-cars/toyota-vitz/781"
+          },
+          {
+            "name": "Yaris",
+            "slug": "yaris",
+            "full_slug": "toyota-yaris",
+            "path": "/used-cars/toyota-yaris/798"
+          }
+        ]
+      }
+    ],
+    "source": "live",
+    "built_at": "2026-10-18T08:59:19+00:00"
+  },
+  "notes": [
+    "The catalogue block is filled in automatically from https://www.pakwheels.com/used-cars/",
+    "on first use (and refreshed when it is older than catalogue_ttl_days).",
+    "default_delay_seconds can never be lowered below the hard 2.0 s politeness floor in pw_scraper.py."
+  ]
+}

@@ -1,0 +1,17 @@
+623: EDITABLE_FIELDS = [
+638: EDITABLE_FIELD_TYPES = {key: kind for key, _label, kind in EDITABLE_FIELDS}
+641: EDITABLE_FIELD_LIMITS = {
+1346:             "editable_fields": editable_field_specs(),
+1415:         "editable_fields": editable_field_specs(),
+1554: BOOL_TRUE_WORDS = {"1", "true", "yes", "y", "on", "featured"}
+1555: BOOL_FALSE_WORDS = {"", "0", "false", "no", "n", "off"}
+1558: def editable_field_specs() -> list[dict]:
+1561:         {"key": key, "label": label, "type": kind} for key, label, kind in EDITABLE_FIELDS
+1565: def json_scalar(value: object):
+1584: def coerce_editable_value(field: str, raw: object):
+1590:     kind = EDITABLE_FIELD_TYPES.get(field)
+1592:         editable = ", ".join(sorted(EDITABLE_FIELD_TYPES))
+1604:         if text in BOOL_TRUE_WORDS:
+1606:         if text in BOOL_FALSE_WORDS:
+1622:         low, high = EDITABLE_FIELD_LIMITS.get(field, (None, None))
+1631: def apply_listing_edit(

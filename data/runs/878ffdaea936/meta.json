@@ -1,0 +1,22 @@
+{
+  "job_id": "878ffdaea936",
+  "make": "mitsubishi",
+  "model": "lancer",
+  "pages_requested": null,
+  "pages_available": 12,
+  "pages_done": 12,
+  "listings": 299,
+  "delay_seconds": 2.0,
+  "generated_at": "2026-10-16 16:00:25",
+  "source_url": "https://www.pakwheels.com/used-cars/search/-/mk_mitsubishi/md_lancer/",
+  "estimate": {
+    "total_results": 299,
+    "pages_to_scrape": 12,
+    "latency_s": 1.58,
+    "eta_seconds": 44.8
+  },
+  "duplicates_dropped": 4,
+  "skipped_no_price": 0,
+  "robots": "https://www.pakwheels.com/robots.txt",
+  "manual_edits": []
+}

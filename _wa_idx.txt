@@ -1,0 +1,47 @@
+﻿
+
+@app.get("/")
+def index():
+    config = pw.load_config()
+    return render_template(
+        "index.html",
+        default_delay=max(
+            float(config.get("default_delay_seconds", pw.DEFAULT_DELAY)), pw.MIN_DELAY
+        ),
+        default_pages=int(config.get("default_pages", pw.DEFAULT_PAGES)),
+        max_pages=int(config.get("max_pages_cap", pw.MAX_PAGES_CAP)),
+        min_delay=pw.MIN_DELAY,
+        catalogue_source=(config.get("catalogue") or {}).get("source"),
+    )
+
+
+@app.get("/api/catalogue")
+def api_catalogue():
+    """Make/model catalogue (cached in config.json for 7 days by default)."""
+    refresh = str(request.args.get("refresh", "")).lower() in ("1", "true", "yes")
+    session = pw.PoliteSession()
+    try:
+        catalogue = pw.fetch_catalogue(session=session, refresh=refresh)
+    except Exception as exc:  # noqa: BLE001 - reported to the UI
+        logger.exception("Catalogue fetch failed")
+        return api_error(f"Catalogue unavailable: {exc}", 502)
+    finally:
+        session.close()
+
+    makes = catalogue.get("makes", [])
+    return jsonify(
+        {
+            "makes": makes,
+            "built_at": catalogue.get("built_at"),
+            "source": catalogue.get("source", "cache"),
+            "total_models": sum(len(make["models"]) for make in makes),
+        }
+    )
+
+
+@app.post("/api/estimate")
+def api_estimate():
+    """Fetch page 1 once and return the results count + a measured ETA."""
+    try:
+        make, model, pages, delay = _parse_request_payload()
+    except ValueError as exc:

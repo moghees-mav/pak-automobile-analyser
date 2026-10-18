@@ -1,0 +1,124 @@
+﻿def run_job(job: Job) -> None:
+    """Background worker: scrape, analyse, persist the run, record the outcome."""
+    job.state = "running"
+    job.started_at = time.time()
+    session = pw.PoliteSession(delay=job.delay)
+    title = f"PakWheels: {job.make.title()} {job.model.title()}"
+
+    try:
+        frame = pw.scrape_pakwheels_model(
+            make=job.make,
+            model=job.model,
+            pages=job.pages,
+            delay=job.delay,
+            session=session,
+            progress_cb=job.ingest,
+            should_stop=lambda: job.cancel_requested,
+            first_page=cached_first_page(job.make, job.model),
+            pages_available=job.pages_available,
+        )
+
+        generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        meta = {
+            "job_id": job.id,
+            "make": job.make,
+            "model": job.model,
+            "pages_requested": job.pages,
+            "pages_available": job.pages_available,
+            "pages_done": job.pages_done,
+            "listings": int(len(frame)),
+            "delay_seconds": job.delay,
+            "generated_at": generated_at,
+            "source_url": job.source_url or pw.search_url(job.make, job.model),
+            "estimate": job.estimate,
+            "duplicates_dropped": job.duplicates_dropped,
+            "skipped_no_price": job.skipped_no_price,
+            "robots": "https://www.pakwheels.com/robots.txt",
+        }
+
+        payload = pw.build_scatter_payload(
+            frame,
+            make=job.make,
+            model=job.model,
+            extra={
+                "generated_at": generated_at,
+                "source_url": meta["source_url"],
+                "pages_scraped": job.pages_done,
+                "job_id": job.id,
+            },
+        )
+        job.payload = payload
+        job.preview = pw.dataframe_preview(frame, limit=25)
+
+        run_dir = pw.new_run_dir(job.id)
+        paths = pw.save_run(frame, meta, run_dir)
+        paths["html"] = str(pw.save_scatter_html(payload, run_dir / "scatter.html", title))
+        job.files = paths
+        job.state = "done"
+        logger.info("Job %s finished with %d listings", job.id, len(frame))
+    except pw.JobCancelled:
+        job.state = "cancelled"
+        job.ingest({"stage": "stopped", "message": "Cancelled by user"})
+        logger.info("Job %s cancelled", job.id)
+    except Exception as exc:  # noqa: BLE001 - surfaced in the UI instead of crashing
+        logger.exception("Job %s failed", job.id)
+        job.state = "error"
+        job.error = f"{type(exc).__name__}: {exc}"
+    finally:
+        session.close()
+        job.finished_at = time.time()
+        manager.release(job.id)
+
+
+def start_job(job: Job) -> Job:
+    """Run an already-created (and claimed) job on a daemon thread."""
+    thread = threading.Thread(target=run_job, args=(job,), name=f"scrape-{job.id}", daemon=True)
+    thread.start()
+    return job
+
+
+# --------------------------------------------------------------------------- #
+# Request helpers
+# --------------------------------------------------------------------------- #
+
+PAGES_ALL = ("all", "none", "max", "")
+SLUG_RE = re.compile(r"^[a-z0-9\-]+$")
+
+
+def api_error(message: str, status: int = 400, **extra):
+    """Uniform JSON error response (extra keys are merged into the body)."""
+    payload = {"error": message}
+    payload.update(extra)
+    return jsonify(payload), status
+
+
+def _parse_request_payload() -> tuple[str, str, Optional[int], float]:
+    """Validate and normalise the JSON/form body sent by the UI."""
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    make = str(data.get("make") or "").strip().lower().replace(" ", "-")
+    model = str(data.get("model") or "").strip().lower().replace(" ", "-")
+
+    if not make or not model:
+        raise ValueError("Both 'make' and 'model' are required.")
+    if not SLUG_RE.match(make) or not SLUG_RE.match(model):
+        raise ValueError("Make/model may only contain letters, digits and hyphens.")
+
+    try:
+        delay = max(float(data.get("delay") or pw.DEFAULT_DELAY), pw.MIN_DELAY)
+    except (TypeError, ValueError):
+        raise ValueError("'delay' must be a number of seconds.")
+
+    raw_pages = data.get("pages", pw.DEFAULT_PAGES)
+    if raw_pages is None or str(raw_pages).strip().lower() in PAGES_ALL:
+        pages: Optional[int] = None
+    else:
+        try:
+            pages = int(raw_pages)
+        except (TypeError, ValueError):
+            raise ValueError("'pages' must be a whole number, or 'all'.")
+        if pages < 1:
+            raise ValueError("'pages' must be at least 1.")
+        pages = min(pages, pw.MAX_PAGES_CAP)
+
+    return make, model, pages, delay
+

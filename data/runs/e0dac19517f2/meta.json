@@ -1,0 +1,21 @@
+{
+  "job_id": "e0dac19517f2",
+  "make": "kia",
+  "model": "spectra",
+  "pages_requested": 10,
+  "pages_available": null,
+  "pages_done": 10,
+  "listings": 18,
+  "delay_seconds": 4.0,
+  "generated_at": "2026-10-16 04:08:38",
+  "source_url": "https://www.pakwheels.com/used-cars/search/-/mk_kia/md_spectra/",
+  "estimate": {
+    "total_results": null,
+    "pages_to_scrape": 10,
+    "latency_s": 1.17,
+    "eta_seconds": 53.2
+  },
+  "duplicates_dropped": 162,
+  "skipped_no_price": 0,
+  "robots": "https://www.pakwheels.com/robots.txt"
+}

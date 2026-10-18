@@ -1,0 +1,11 @@
+=== BOMs ===
+static\app.js BOM=False
+static\style.css BOM=False
+templates\index.html BOM=False
+pw_scraper.py BOM=True
+web_app.py BOM=False
+=== git ===
+fatal: not a git repository (or any of the parent directories): .git
+=== pytest ===
+................................                                         [100%]
+32 passed in 3.79s

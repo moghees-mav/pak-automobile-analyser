@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PakWheels: Kia Spectra</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+  body { font-family: Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 24px; color: #10233f; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.meta { color: #5a6b85; margin: 0 0 16px; font-size: 13px; }
+  #chart { width: 100%; height: 640px; }
+</style>
+</head>
+<body>
+<h1>PakWheels: Kia Spectra</h1>
+<p class="meta">18 listings &middot; kia spectra &middot; generated 2026-10-16 04:08:38 &middot; https://www.pakwheels.com/used-cars/search/-/mk_kia/md_spectra/</p>
+<div id="chart"></div>
+<script>
+const PAYLOAD = {"points": [{"listing_id": "12127864", "title": "KIA Spectra 2001 1.5 for Sale", "year": 2001, "price_pkr": 650000.0, "price_lacs": 6.5, "mileage_km": 191370, "engine_cc": 1500, "fuel_type": "Petrol", "transmission": "MANUAL", "variant": "1.5", "variant_family": null, "location": "Karachi", "is_featured": false, "posted_text": "Updated 1 day ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2001-for-sale-in-karachi-12127864"}, {"listing_id": "12110359", "title": "KIA Spectra 2002 for Sale", "year": 2002, "price_pkr": 1550000.0, "price_lacs": 15.5, "mileage_km": 23000, "engine_cc": 1300, "fuel_type": "Petrol", "transmission": "Automatic", "variant": null, "variant_family": null, "location": "Karachi", "is_featured": false, "posted_text": "Updated 6 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2002-for-sale-in-karachi-12110359"}, {"listing_id": "11653303", "title": "KIA Spectra 2004 1.5 for Sale", "year": 2004, "price_pkr": 720000.0, "price_lacs": 7.2, "mileage_km": 100000, "engine_cc": 1500, "fuel_type": "Petrol", "transmission": "MANUAL", "variant": "1.5", "variant_family": null, "location": "Karachi", "is_featured": false, "posted_text": "Updated 9 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2004-for-sale-in-karachi-11653303"}, {"listing_id": "12095939", "title": "KIA Spectra 2001 1.6 for Sale", "year": 2001, "price_pkr": 650000.0, "price_lacs": 6.5, "mileage_km": 250000, "engine_cc": 1600, "fuel_type": "Petrol", "transmission": "MANUAL", "variant": "1.6", "variant_family": null, "location": "Lahore", "is_featured": false, "posted_text": "Updated 9 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2001-for-sale-in-lahore-12095939"}, {"listing_id": "12085299", "title": "KIA Spectra 2003 for Sale", "year": 2003, "price_pkr": 1150000.0, "price_lacs": 11.5, "mileage_km": 200000, "engine_cc": 1500, "fuel_type": "Petrol", "transmission": "Automatic", "variant": null, "variant_family": null, "location": "Sihala", "is_featured": false, "posted_text": "Updated 12 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2003-for-sale-in-sihala-12085299"}, {"listing_id": "12073151", "title": "KIA Spectra 2001 1.5 for Sale", "year": 2001, "price_pkr": 1000000.0, "price_lacs": 10.0, "mileage_km": 150000, "engine_cc": 1500, "fuel_type": "Petrol", "transmission": "MANUAL", "variant": "1.5", "variant_family": null, "location": "Gujar Khan", "is_featured": false, "posted_text": "Updated 15 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2001-for-sale-in-gujar-khan-12073151"}, {"listing_id": "12073001", "title": "KIA Spectra 2003 1.5 for Sale", "year": 2003, "price_pkr": 1200000.0, "price_lacs": 12.0, "mileage_km": 7085, "engine_cc": 1500, "fuel_type": "Petrol", "transmission": "MANUAL", "variant": "1.5", "variant_family": null, "location": "Rawalpindi", "is_featured": false, "posted_text": "Updated 15 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2003-for-sale-in-rawalpindi-12073001"}, {"listing_id": "12070795", "title": "KIA Spectra 2001 1.5 for Sale", "year": 2001, "price_pkr": 800000.0, "price_lacs": 8.0, "mileage_km": 25000, "engine_cc": 1500, "fuel_type": "Petrol", "transmission": "MANUAL", "variant": "1.5", "variant_family": null, "location": "Sahiwal", "is_featured": false, "posted_text": "Updated 15 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2001-for-sale-in-sahiwal-12070795"}, {"listing_id": "12067962", "title": "KIA Spectra 2001 1.6 for Sale", "year": 2001, "price_pkr": 900000.0, "price_lacs": 9.0, "mileage_km": 300000, "engine_cc": 1600, "fuel_type": "Petrol", "transmission": "Automatic", "variant": "1.6", "variant_family": null, "location": "Rawalpindi", "is_featured": false, "posted_text": "Updated 16 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2001-for-sale-in-rawalpindi-12067962"}, {"listing_id": "12060264", "title": "KIA Spectra 2001 1.6 for Sale", "year": 2001, "price_pkr": 700000.0, "price_lacs": 7.0, "mileage_km": 200000, "engine_cc": 1600, "fuel_type": "Petrol", "transmission": "MANUAL", "variant": "1.6", "variant_family": null, "location": "Faisalabad", "is_featured": false, "posted_text": "Updated 18 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2001-for-sale-in-faisalabad-12060264"}, {"listing_id": "12059300", "title": "KIA Spectra 2004 1.5 for Sale", "year": 2004, "price_pkr": 600000.0, "price_lacs": 6.0, "mileage_km": 148000, "engine_cc": 1500, "fuel_type": "Petrol", "transmission": "MANUAL", "variant": "1.5", "variant_family": null, "location": "Karachi", "is_featured": false, "posted_text": "Updated 18 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2004-for-sale-in-karachi-12059300"}, {"listing_id": "12053500", "title": "KIA Spectra 2001 1.5 for Sale", "year": 2001, "price_pkr": 685000.0, "price_lacs": 6.85, "mileage_km": 170000, "engine_cc": 1500, "fuel_type": "Petrol", "transmission": "MANUAL", "variant": "1.5", "variant_family": null, "location": "Wah Cantt", "is_featured": false, "posted_text": "Updated 19 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2001-for-sale-in-wah-cantt-12053500"}, {"listing_id": "12088811", "title": "KIA Spectra 2003 1.5 for Sale", "year": 2003, "price_pkr": 849000.0, "price_lacs": 8.49, "mileage_km": 200000, "engine_cc": 1500, "fuel_type": "Petrol", "transmission": "MANUAL", "variant": "1.5", "variant_family": null, "location": "Dunia Pur", "is_featured": false, "posted_text": "Updated 11 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2003-for-sale-in-dunia-pur-12088811"}, {"listing_id": "12059006", "title": "KIA Spectra 2002 1.5 for Sale", "year": 2002, "price_pkr": 1195000.0, "price_lacs": 11.95, "mileage_km": 200000, "engine_cc": 1500, "fuel_type": "Petrol", "transmission": "MANUAL", "variant": "1.5", "variant_family": null, "location": "Islamabad", "is_featured": false, "posted_text": "Updated 18 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2002-for-sale-in-islamabad-12059006"}, {"listing_id": "12048077", "title": "KIA Spectra 2003 for Sale", "year": 2003, "price_pkr": 700000.0, "price_lacs": 7.0, "mileage_km": 240000, "engine_cc": 1300, "fuel_type": "Petrol", "transmission": "MANUAL", "variant": null, "variant_family": null, "location": "Sargodha", "is_featured": false, "posted_text": "Updated 20 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2003-for-sale-in-sargodha-12048077"}, {"listing_id": "11750985", "title": "KIA Spectra 2001 for Sale", "year": 2001, "price_pkr": 850000.0, "price_lacs": 8.5, "mileage_km": 150000, "engine_cc": 1500, "fuel_type": "Petrol", "transmission": "Automatic", "variant": null, "variant_family": null, "location": "Wah Cantt", "is_featured": false, "posted_text": "Updated 21 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2001-for-sale-in-wah-cantt-11750985"}, {"listing_id": "12034644", "title": "KIA Spectra 2001 1.5 for Sale", "year": 2001, "price_pkr": 950000.0, "price_lacs": 9.5, "mileage_km": 200000, "engine_cc": 1500, "fuel_type": "Petrol", "transmission": "Automatic", "variant": "1.5", "variant_family": null, "location": "Lahore", "is_featured": false, "posted_text": "Updated 23 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2001-for-sale-in-lahore-12034644"}, {"listing_id": "11642863", "title": "KIA Spectra 2003 1.6 for Sale", "year": 2003, "price_pkr": 650000.0, "price_lacs": 6.5, "mileage_km": 10000, "engine_cc": 1600, "fuel_type": "Petrol", "transmission": "MANUAL", "variant": "1.6", "variant_family": null, "location": "Faisalabad", "is_featured": false, "posted_text": "Updated 27 days ago", "url": "https://www.pakwheels.com/used-cars/kia-spectra-2003-for-sale-in-faisalabad-11642863"}], "stats": {"count": 18, "rows_scraped": 18, "rows_dropped_no_year": 0, "price_min": 600000.0, "price_median": 824500.0, "price_max": 1550000.0, "price_min_lacs": 6.0, "price_max_lacs": 15.5, "year_min": 2001, "year_max": 2004, "mileage_median_km": 180685.0, "featured_count": 0, "missing_year_count": 0}, "facets": {"variant_family": [], "transmission": ["Automatic", "MANUAL"], "fuel_type": ["Petrol"], "location": ["Dunia Pur", "Faisalabad", "Gujar Khan", "Islamabad", "Karachi", "Lahore", "Rawalpindi", "Sahiwal", "Sargodha", "Sihala", "Wah Cantt"]}, "trend": {"slope": 0.0018, "intercept": 5.1372, "r_squared": 0.0, "x_min": 2001.0, "x_max": 2004.0, "y_at_x_min": 8.775, "y_at_x_max": 8.781, "n": 18}, "meta": {"make": "kia", "model": "spectra", "generated_at": "2026-10-16 04:08:38", "source_url": "https://www.pakwheels.com/used-cars/search/-/mk_kia/md_spectra/", "pages_scraped": 10, "job_id": "e0dac19517f2"}};
+
+function traceForGroup(key) {
+  const groups = new Map();
+  PAYLOAD.points.forEach(p => {
+    const g = p[key] || "Unknown";
+    if (!groups.has(g)) groups.set(g, { x: [], y: [], text: [], customdata: [] });
+    const bucket = groups.get(g);
+    bucket.x.push(p.year);
+    bucket.y.push(p.price_lacs);
+    bucket.text.push(p.title || "");
+    bucket.customdata.push([p.mileage_km, p.location, p.transmission, p.url, p.price_pkr]);
+  });
+  return Array.from(groups.entries()).map(([name, bucket]) => ({
+    type: "scatter", mode: "markers", name: name,
+    x: bucket.x, y: bucket.y, text: bucket.text, customdata: bucket.customdata,
+    hovertemplate: "<b>%{text}</b><br>Year: %{x}<br>Price: %{y} lacs"
+      + "<br>Mileage: %{customdata[0]} km<br>City: %{customdata[1]}"
+      + "<br>Transmission: %{customdata[2]}<extra>" + name + "</extra>",
+    marker: { size: 10, opacity: 0.75, line: { width: 0.5, color: "#ffffff" } }
+  }));
+}
+
+const traces = traceForGroup("variant_family");
+const trend = PAYLOAD.trend;
+if (trend) {
+  traces.push({
+    type: "scatter", mode: "lines", name: "Trend",
+    x: [trend.x_min, trend.x_max], y: [trend.y_at_x_min, trend.y_at_x_max],
+    line: { color: "#e2574c", width: 2, dash: "dash" },
+    hovertemplate: "Trend line<extra></extra>"
+  });
+}
+
+Plotly.newPlot("chart", traces, {
+  title: { text: "Price (lacs PKR) vs Model Year", font: { size: 15 } },
+  xaxis: { title: "Model year", dtick: 1, tickangle: -45 },
+  yaxis: { title: "Price (lacs PKR)" },
+  legend: { orientation: "h", y: -0.2 },
+  margin: { t: 48, r: 24, b: 90, l: 70 },
+  hovermode: "closest"
+}, { responsive: true, displaylogo: false });
+</script>
+</body>
+</html>

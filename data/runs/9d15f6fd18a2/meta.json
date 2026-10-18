@@ -1,0 +1,22 @@
+{
+  "job_id": "9d15f6fd18a2",
+  "make": "suzuki",
+  "model": "swift",
+  "pages_requested": null,
+  "pages_available": 65,
+  "pages_done": 20,
+  "listings": 551,
+  "delay_seconds": 2.0,
+  "generated_at": "2026-10-16 15:53:33",
+  "source_url": "https://www.pakwheels.com/used-cars/search/-/mk_suzuki/md_swift/",
+  "estimate": {
+    "total_results": 1612,
+    "pages_to_scrape": 65,
+    "latency_s": 1.75,
+    "eta_seconds": 253.5
+  },
+  "duplicates_dropped": 107,
+  "skipped_no_price": 6,
+  "robots": "https://www.pakwheels.com/robots.txt",
+  "manual_edits": []
+}

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PakWheels Market Explorer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <!-- Plotly.js: local copy when present, CDN fallback otherwise -->
+  <script src="{{ url_for('static', filename='vendor/plotly.min.js') }}"></script>
+  <script>
+    if (!window.Plotly) {
+      document.write('<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"><\/script>');
+    }
+  </script>
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <h1>PakWheels Market Explorer</h1>
+    <p class="subtitle">
+      Pick a make and model, see how long the scrape will take, then explore price vs. year.
+    </p>
+  </div>
+  <div class="badges">
+    <span class="badge badge-green" title="Every request is checked against pakwheels.com/robots.txt">
+      robots.txt guard on
+    </span>
+    <span class="badge" id="badge-delay" title="Minimum spacing between requests">
+      &ge; {{ min_delay }}s between requests
+    </span>
+    <span class="badge" id="badge-catalogue" title="Where the make/model list came from">
+      catalogue: {{ catalogue_source or 'not built yet' }}
+    </span>
+  </div>
+</header>
+
+<div id="error-banner" class="banner banner-error" hidden></div>
+
+<main class="layout">
+  <section class="card">
+    <h2>1. Choose a car</h2>
+
+    <label for="make">Make</label>
+    <select id="make"></select>
+    <input id="make-custom" type="text" placeholder="or type a make slug, e.g. mg" hidden />
+
+    <label for="model">Model</label>
+    <select id="model" disabled></select>
+    <input id="model-custom" type="text" placeholder="or type a model slug, e.g. hs" hidden />
+
+    <div class="row">
+      <div class="field">
+        <label for="pages">Pages to scrape</label>
+        <input id="pages" type="number" min="1" max="{{ max_pages }}" value="{{ default_pages }}" />
+      </div>
+      <div class="field">
+        <label for="delay">Delay per request (s)</label>
+        <input id="delay" type="number" min="{{ min_delay }}" step="0.5" value="{{ default_delay }}" />
+      </div>
+    </div>
+
+    <label class="check">
+      <input id="all-pages" type="checkbox" />
+      Scrape every available page (capped at {{ max_pages }})
+    </label>
+
+    <p class="hint">
+      One page holds about 25 listings, so {{ default_pages }} pages &asymp;
+      {{ default_pages * 25 }} cars. Each page costs one polite request.
+    </p>
+
+    <div class="actions">
+      <button id="btn-estimate" class="btn">Estimate time</button>
+      <button id="btn-start" class="btn btn-primary" disabled>Start scrape</button>
+      <button id="btn-cancel" class="btn btn-danger" disabled>Cancel</button>
+      <button id="btn-refresh-catalogue" class="btn btn-ghost" title="Re-read the make/model list">
+        Refresh catalogue
+      </button>
+    </div>
+  </section>
+
+  <section class="card" id="estimate-panel">
+    <h2>2. Estimated duration</h2>
+    <p class="muted" id="estimate-placeholder">
+      Press <strong>Estimate time</strong> to fetch the first results page once and measure
+      exactly how many ads exist and how long the scrape will take.
+    </p>
+    <div id="estimate-body" hidden>
+      <div class="stat-grid">
+        <div class="stat"><span class="stat-label">Ads found</span><span class="stat-value" id="est-total">-</span></div>
+        <div class="stat"><span class="stat-label">Pages available</span><span class="stat-value" id="est-available">-</span></div>
+        <div class="stat"><span class="stat-label">Pages to scrape</span><span class="stat-value" id="est-pages">-</span></div>
+        <div class="stat"><span class="stat-label">First page latency</span><span class="stat-value" id="est-latency">-</span></div>
+        <div class="stat"><span class="stat-label">Per page</span><span class="stat-value" id="est-perpage">-</span></div>
+        <div class="stat"><span class="stat-label">Measured ETA</span><span class="stat-value" id="est-eta">-</span></div>
+      </div>
+      <p class="muted" id="est-finish"></p>
+      <p class="warn" id="est-notes" hidden></p>
+      <details id="est-sample-wrap" hidden>
+        <summary>Preview of the first page (<span id="est-sample-count">0</span> shown)</summary>
+        <div class="table-wrap"><table id="est-sample-table"></table></div>
+      </details>
+    </div>
+  </section>
+
+  <section class="card" id="progress-panel">
+    <h2>3. Progress</h2>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="progress-stats">
+      <span id="prog-state" class="pill">idle</span>
+      <span id="prog-pages">page 0 / 0</span>
+      <span id="prog-listings">0 listings</span>
+      <span id="prog-elapsed">0 s elapsed</span>
+      <span id="prog-eta"></span>
+    </div>
+    <details id="log-wrap">
+      <summary>Live log</summary>
+      <ol id="log" class="log"></ol>
+    </details>
+  </section>
+
+  <section class="card wide" id="results-panel" hidden>
+    <h2>4. Results</h2>
+    <div class="stat-grid" id="result-stats"></div>
+
+    <div class="chart-toolbar">
+      <label>X axis
+        <select id="axis-x">
+          <option value="year">Model year</option>
+          <option value="mileage_km">Mileage (km)</option>
+          <option value="engine_cc">Engine (cc)</option>
+        </select>
+      </label>
+      <label>Y axis
+        <select id="axis-y">
+          <option value="price_lacs">Price (lacs PKR)</option>
+          <option value="price_pkr">Price (PKR)</option>
+          <option value="mileage_km">Mileage (km)</option>
+        </select>
+      </label>
+      <label>Colour by
+        <select id="color-by">
+          <option value="variant_family">Variant</option>
+          <option value="transmission">Transmission</option>
+          <option value="fuel_type">Fuel</option>
+          <option value="location">City</option>
+          <option value="deal_rating">Deal Rating</option>
+        </select>
+      </label>
+      <label class="check"><input id="toggle-trend" type="checkbox" checked /> Trend line</label>
+      <label class="check"><input id="toggle-log-y" type="checkbox" /> Log scale (Y)</label>
+      <label class="check"><input id="toggle-featured" type="checkbox" checked /> Include featured ads</label>
+    </div>
+
+    <div id="chart" class="chart"></div>
+
+    <div class="actions">
+      <a id="dl-csv" class="btn" href="#" download>Download CSV</a>
+      <a id="dl-json" class="btn" href="#" download>Download JSON</a>
+      <a id="dl-html" class="btn" href="#" download>Download standalone chart</a>
+      <a id="dl-meta" class="btn" href="#" download>Run metadata</a>
+      <a id="link-source" class="btn btn-ghost" href="#" target="_blank" rel="noopener">Source page</a>
+    </div>
+
+    <details open>
+      <summary>
+        Preview (showing <span id="preview-count">0</span> of <span id="preview-total">0</span>
+        listings &middot; <span id="edit-count">0</span> manual corrections)
+      </summary>
+      <p class="hint">
+        Mis-parsed a value? Filter to the listing, press <strong>Edit</strong>, fix the fields and
+        save &mdash; the chart, the preview and every download are rebuilt from the corrected data.
+      </p>
+      <div class="preview-filters">
+        <label>Filter listings
+          <input id="preview-filter" type="search" placeholder="title, id, variant, city or year" />
+        </label>
+        <label>Deal Rating
+          <select id="deal-filter">
+            <option value="">All ratings</option>
+            {% for rating in deal_ratings %}
+            <option value="{{ rating }}">{{ rating }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <div class="table-wrap"><table id="preview-table"></table></div>
+    </details>
+  </section>
+
+  <dialog id="edit-dialog" class="editor">
+    <form id="edit-form">
+      <h3>Correct listing <span id="edit-listing-id">-</span></h3>
+      <p class="hint" id="edit-snippet"></p>
+      <div class="editor-grid" id="edit-fields"></div>
+      <p class="warn" id="edit-error" hidden></p>
+      <div class="actions">
+        <button type="submit" class="btn btn-primary" id="edit-save">Save changes</button>
+        <button type="button" class="btn btn-ghost" id="edit-cancel">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+</main>
+
+<footer class="footer">
+  <span>
+    Politeness: &ge;{{ min_delay }}s between requests, retry/backoff on 429/503, one job at a time.
+    Disallowed parameters (<code>sortby</code>, <code>nf</code>) and private paths are blocked in code.
+  </span>
+</footer>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

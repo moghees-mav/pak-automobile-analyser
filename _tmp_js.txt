@@ -1,0 +1,88 @@
+      ["Duplicates removed", snapshot.duplicates_dropped],
+      ["Pages scraped", snapshot.pages_done + " / " + (snapshot.pages_total || 0)]
+    ];
+    var container = $("result-stats");
+    container.innerHTML = "";
+    cards.forEach(function (pair) {
+      var box = document.createElement("div");
+      box.className = "stat";
+      box.innerHTML = '<span class="stat-label">' + escapeHtml(pair[0]) +
+        '</span><span class="stat-value">' + escapeHtml(pair[1]) + "</span>";
+      container.appendChild(box);
+    });
+  }
+
+  function wireDownloads(snapshot, payload) {
+    var files = snapshot.downloads || {};
+    $("dl-csv").href = files.csv || "#";
+    $("dl-json").href = files.json || "#";
+    $("dl-html").href = files.html || "#";
+    $("dl-meta").href = files.meta || "#";
+    $("link-source").href = (payload.meta && payload.meta.source_url) || snapshot.source_url || "#";
+  }
+
+  function renderPreview(payload) {
+    var points = (payload.points || []).slice(0, 25);
+    $("preview-count").textContent = points.length;
+    renderTable($("preview-table"), [
+      { key: "year", label: "Year" },
+      { key: "title", label: "Title" },
+      { key: "variant_family", label: "Variant" },
+      { key: "price_lacs", label: "Price (lacs)" },
+      { key: "mileage_km", label: "Mileage (km)" },
+      { key: "transmission", label: "Transmission" },
+      { key: "location", label: "City" },
+      { key: "posted_text", label: "Posted" },
+      { key: "url", label: "Ad link", link: true }
+    ], points);
+  }
+
+  function renderTable(table, columns, rows) {
+    var head = "<thead><tr>" + columns.map(function (col) {
+      return "<th>" + escapeHtml(col.label) + "</th>";
+    }).join("") + "</tr></thead>";
+
+    var body = (rows || []).map(function (row) {
+      return "<tr>" + columns.map(function (col) {
+        var value = row[col.key];
+        if (col.link) {
+          return value
+            ? '<td><a href="' + escapeHtml(value) + '" target="_blank" rel="noopener">open</a></td>'
+            : "<td>-</td>";
+        }
+        if (value === null || value === undefined || value === "") { return "<td>-</td>"; }
+        return "<td>" + escapeHtml(value) + "</td>";
+      }).join("") + "</tr>";
+    }).join("");
+
+    table.innerHTML = head + "<tbody>" + body + "</tbody>";
+  }
+
+  function axisLabel(key) {
+    var labels = {
+      year: "Model year",
+      price_lacs: "Price (lacs PKR)",
+      price_pkr: "Price (PKR)",
+      mileage_km: "Mileage (km)",
+      engine_cc: "Engine (cc)"
+    };
+    return labels[key] || key;
+  }
+
+  function drawChart() {
+    var chart = $("chart");
+    if (!window.Plotly) {
+      chart.innerHTML = '<p class="muted" style="padding:24px">Plotly.js could not be loaded ' +
+        "(offline?). Use the standalone chart, CSV or JSON download instead.</p>";
+      return;
+    }
+    var payload = state.payload;
+    if (!payload || !(payload.points || []).length) {
+      chart.innerHTML = '<p class="muted" style="padding:24px">No listings to plot.</p>';
+      return;
+    }
+
+    var options = state.chartOptions;
+    var points = payload.points.filter(function (point) {
+      return (options.includeFeatured || !point.is_featured) &&
+        point[options.x] !== null && point[options.x] !== undefined &&

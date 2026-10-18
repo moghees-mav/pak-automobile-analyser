@@ -1,0 +1,180 @@
+﻿      });
+      select.appendChild(new Option("Other / not listedâ€¦", "__custom__"));
+      var stamp = data.built_at ? " Â· " + data.built_at.slice(0, 10) : "";
+      badge.textContent = "catalogue: " + data.source + " (" + data.makes.length + " makes, " +
+        data.total_models + " models)" + stamp;
+      onMakeChange();
+    }).catch(function (error) {
+      badge.textContent = "catalogue: unavailable";
+      showError("Could not load the make/model catalogue: " + error.message +
+        " â€” you can still type make and model slugs manually.");
+      $("make").innerHTML = "";
+      $("make").appendChild(new Option("Other / not listedâ€¦", "__custom__"));
+      onMakeChange();
+    });
+  }
+
+  function onMakeChange() {
+    var slug = $("make").value;
+    var custom = slug === "__custom__";
+    $("make-custom").hidden = !custom;
+    $("model").innerHTML = "";
+
+    if (custom) {
+      $("model").hidden = true;
+      $("model-custom").hidden = false;
+      state.estimate = null;
+      $("btn-start").disabled = false;
+      return;
+    }
+
+    $("model-custom").hidden = true;
+    $("model").hidden = false;
+    var make = (state.catalogue && state.catalogue.makes || []).filter(function (item) {
+      return item.slug === slug;
+    })[0];
+    if (make) {
+      make.models.forEach(function (model) {
+        $("model").appendChild(new Option(model.name, model.slug));
+      });
+    }
+    $("model").disabled = !make || make.models.length === 0;
+    state.estimate = null;
+    $("btn-start").disabled = $("model").disabled;
+  }
+
+  function currentSelection() {
+    var custom = $("make").value === "__custom__";
+    var make = custom ? ($("make-custom").value || "").trim() : $("make").value;
+    var model = custom ? ($("model-custom").value || "").trim() : $("model").value;
+    if (!make || !model) {
+      showError("Please choose both a make and a model (or type their slugs).");
+      return null;
+    }
+    return { make: make, model: model };
+  }
+
+  function buildBody() {
+    var selection = currentSelection();
+    if (!selection) { return null; }
+    return {
+      make: selection.make,
+      model: selection.model,
+      pages: $("all-pages").checked ? "all" : $("pages").value,
+      delay: Number($("delay").value) || 2
+    };
+  }
+
+  // ----------------------------------------------------------------- estimate
+
+  function requestEstimate() {
+    var body = buildBody();
+    if (!body) { return; }
+    clearError();
+    $("estimate-placeholder").hidden = true;
+    $("estimate-body").hidden = false;
+    setBusy($("btn-estimate"), true, "Measuringâ€¦");
+    postJSON("/api/estimate", body).then(function (data) {
+      state.estimate = data;
+      renderEstimate(data);
+      $("btn-start").disabled = false;
+    }).catch(function (error) {
+      showError(error.message);
+      $("estimate-body").hidden = true;
+      $("estimate-placeholder").hidden = false;
+    }).then(function () {
+      setBusy($("btn-estimate"), false, "Estimate time");
+    });
+  }
+
+  function renderEstimate(data) {
+    $("est-total").textContent = (data.total_results === null || data.total_results === undefined)
+      ? "unknown" : Number(data.total_results).toLocaleString("en-US");
+    $("est-available").textContent = data.available_pages ? data.available_pages : "unknown";
+    $("est-pages").textContent = data.pages_to_scrape;
+    $("est-latency").textContent = data.latency_s + " s";
+    $("est-perpage").textContent = data.seconds_per_page + " s";
+    $("est-eta").textContent = data.eta_human + " (" + data.eta_range_human + ")";
+    $("est-finish").textContent = "Started " + (data.started_at_iso || "-") +
+      " Â· delay " + data.delay + " s/request â†’ estimated finish around " +
+      (data.finish_at_iso || "-") + (data.measured ? "" : " (rough estimate)");
+
+    var notes = $("est-notes");
+    if (data.notes) { notes.textContent = data.notes; notes.hidden = false; }
+    else { notes.hidden = true; }
+
+    var samples = data.samples || [];
+    $("est-sample-wrap").hidden = samples.length === 0;
+    $("est-sample-count").textContent = samples.length;
+    renderTable($("est-sample-table"), [
+      { key: "year", label: "Year" },
+      { key: "title", label: "Title" },
+      { key: "price_lacs", label: "Price (lacs)" },
+      { key: "mileage_km", label: "Mileage (km)" },
+      { key: "location", label: "City" },
+      { key: "transmission", label: "Transmission" }
+    ], samples);
+  }
+
+  // ------------------------------------------------------------------- scrape
+
+  function startScrape() {
+    var body = buildBody();
+    if (!body) { return; }
+    clearError();
+    $("log").innerHTML = "";
+    $("results-panel").hidden = true;
+    $("btn-start").disabled = true;
+    setBusy($("btn-start"), true, "Startingâ€¦");
+
+    body.pages_available = (state.estimate && state.estimate.available_pages) || null;
+    body.estimate = state.estimate ? {
+      total_results: state.estimate.total_results,
+      pages_to_scrape: state.estimate.pages_to_scrape,
+      latency_s: state.estimate.latency_s,
+      eta_seconds: state.estimate.eta_seconds
+    } : {};
+
+    postJSON("/api/scrape", body).then(function (snapshot) {
+      state.jobId = snapshot.id;
+      $("btn-cancel").disabled = false;
+      renderProgress(snapshot);
+      if (state.pollTimer) { clearInterval(state.pollTimer); }
+      state.pollTimer = setInterval(pollJob, POLL_MS);
+    }).catch(function (error) {
+      showError(error.message);
+      $("btn-start").disabled = false;
+    }).then(function () {
+      setBusy($("btn-start"), false, "Start scrape");
+    });
+  }
+
+  function pollJob() {
+    if (!state.jobId) { return; }
+    getJSON("/api/job/" + state.jobId + "?log=40").then(function (snapshot) {
+      renderProgress(snapshot);
+      if (snapshot.state === "done" || snapshot.state === "error" || snapshot.state === "cancelled") {
+        if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+        $("btn-cancel").disabled = true;
+        $("btn-start").disabled = false;
+        if (snapshot.state === "done") { loadResults(snapshot); }
+        if (snapshot.state === "error") { showError(snapshot.error || "The scrape failed."); }
+        if (snapshot.state === "cancelled") { showError("Scrape cancelled."); }
+      }
+    }).catch(function (error) {
+      if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+      showError(error.message);
+      $("btn-cancel").disabled = true;
+      $("btn-start").disabled = false;
+    });
+  }
+
+  function renderProgress(snapshot) {
+    $("progress-fill").style.width = (snapshot.progress_pct || 0) + "%";
+
+    var pill = $("prog-state");
+    pill.textContent = snapshot.state;
+    pill.className = "pill " + (snapshot.state === "running" ? "running" :
+      (snapshot.state === "done" ? "done" : (snapshot.state === "error" ? "error" : "")));
+
+    $("prog-pages").textContent = "page " + snapshot.pages_done + " / " + (snapshot.pages_total || 0);

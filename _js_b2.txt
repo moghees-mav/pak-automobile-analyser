@@ -1,0 +1,150 @@
+﻿  // ------------------------------------------------------------------ results
+
+  function loadResults(snapshot) {
+    if (!snapshot || !snapshot.id) { return; }
+    getJSON("/api/result/" + snapshot.id).then(function (payload) {
+      state.payload = payload;
+      $("results-panel").hidden = false;
+      renderResultStats(payload, snapshot);
+      wireDownloads(snapshot, payload);
+      renderPreview(payload);
+      drawChart();
+      $("results-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+    }).catch(function (error) { showError(error.message); });
+  }
+
+  function renderResultStats(payload, snapshot) {
+    var stats = payload.stats || {};
+    var priceRange = (stats.price_min_lacs === undefined)
+      ? "-" : stats.price_min_lacs + " â€“ " + stats.price_max_lacs + " lacs";
+    var yearRange = stats.year_min ? stats.year_min + " â€“ " + stats.year_max : "-";
+    var cards = [
+      ["Listings", stats.count],
+      ["Price range", priceRange],
+      ["Median price", formatPkr(stats.price_median)],
+      ["Years", yearRange],
+      ["Median mileage", stats.mileage_median_km
+        ? Number(stats.mileage_median_km).toLocaleString("en-US") + " km" : "-"],
+      ["Featured ads", stats.featured_count],
+      ["Duplicates removed", snapshot.duplicates_dropped],
+      ["Pages scraped", snapshot.pages_done + " / " + (snapshot.pages_total || 0)]
+    ];
+    var container = $("result-stats");
+    container.innerHTML = "";
+    cards.forEach(function (pair) {
+      var box = document.createElement("div");
+      box.className = "stat";
+      box.innerHTML = '<span class="stat-label">' + escapeHtml(pair[0]) +
+        '</span><span class="stat-value">' + escapeHtml(pair[1]) + "</span>";
+      container.appendChild(box);
+    });
+  }
+
+  function wireDownloads(snapshot, payload) {
+    var files = snapshot.downloads || {};
+    $("dl-csv").href = files.csv || "#";
+    $("dl-json").href = files.json || "#";
+    $("dl-html").href = files.html || "#";
+    $("dl-meta").href = files.meta || "#";
+    $("link-source").href = (payload.meta && payload.meta.source_url) || snapshot.source_url || "#";
+  }
+
+  function renderPreview(payload) {
+    var points = (payload.points || []).slice(0, 25);
+    $("preview-count").textContent = points.length;
+    renderTable($("preview-table"), [
+      { key: "year", label: "Year" },
+      { key: "title", label: "Title" },
+      { key: "variant_family", label: "Variant" },
+      { key: "price_lacs", label: "Price (lacs)" },
+      { key: "mileage_km", label: "Mileage (km)" },
+      { key: "transmission", label: "Transmission" },
+      { key: "location", label: "City" },
+      { key: "posted_text", label: "Posted" },
+      { key: "url", label: "Ad link", link: true }
+    ], points);
+  }
+
+  function renderTable(table, columns, rows) {
+    var head = "<thead><tr>" + columns.map(function (col) {
+      return "<th>" + escapeHtml(col.label) + "</th>";
+    }).join("") + "</tr></thead>";
+
+    var body = (rows || []).map(function (row) {
+      return "<tr>" + columns.map(function (col) {
+        var value = row[col.key];
+        if (col.link) {
+          return value
+            ? '<td><a href="' + escapeHtml(value) + '" target="_blank" rel="noopener">open</a></td>'
+            : "<td>-</td>";
+        }
+        if (value === null || value === undefined || value === "") { return "<td>-</td>"; }
+        return "<td>" + escapeHtml(value) + "</td>";
+      }).join("") + "</tr>";
+    }).join("");
+
+    table.innerHTML = head + "<tbody>" + body + "</tbody>";
+  }
+
+  function axisLabel(key) {
+    var labels = {
+      year: "Model year",
+      price_lacs: "Price (lacs PKR)",
+      price_pkr: "Price (PKR)",
+      mileage_km: "Mileage (km)",
+      engine_cc: "Engine (cc)"
+    };
+    return labels[key] || key;
+  }
+
+  function drawChart() {
+    var chart = $("chart");
+    if (!window.Plotly) {
+      chart.innerHTML = '<p class="muted" style="padding:24px">Plotly.js could not be loaded ' +
+        "(offline?). Use the standalone chart, CSV or JSON download instead.</p>";
+      return;
+    }
+    var payload = state.payload;
+    if (!payload || !(payload.points || []).length) {
+      chart.innerHTML = '<p class="muted" style="padding:24px">No listings to plot.</p>';
+      return;
+    }
+
+    var options = state.chartOptions;
+    var points = payload.points.filter(function (point) {
+      return (options.includeFeatured || !point.is_featured) &&
+        point[options.x] !== null && point[options.x] !== undefined &&
+        point[options.y] !== null && point[options.y] !== undefined;
+    });
+    if (!points.length) {
+      chart.innerHTML = '<p class="muted" style="padding:24px">No points have both axes set.</p>';
+      return;
+    }
+
+    var groups = new Map();
+    points.forEach(function (point) {
+      var key = point[options.color] || "Unknown";
+      if (!groups.has(key)) { groups.set(key, []); }
+      groups.get(key).push(point);
+    });
+
+    var traces = [];
+    groups.forEach(function (items, key) {
+      traces.push({
+        type: "scatter",
+        mode: "markers",
+        name: key,
+        x: items.map(function (point) { return point[options.x]; }),
+        y: items.map(function (point) { return point[options.y]; }),
+        text: items.map(function (point) { return point.title || ""; }),
+        customdata: items.map(function (point) {
+          return [
+            formatPkr(point.price_pkr), point.variant, point.mileage_km,
+            point.transmission, point.fuel_type, point.location,
+            point.posted_text, point.url, point.is_featured ? "featured" : "organic"
+          ];
+        }),
+        marker: { size: 12, opacity: 0.8, line: { width: 1, color: "#ffffff" } },
+        hovertemplate: "<b>%{text}</b><br>" + axisLabel(options.x) + ": %{x}" +
+          "<br>Price: %{customdata[0]}<br>Variant: %{customdata[1]}" +
+          "<br>Mileage: %{customdata[2]} km<br>Transmission: %{customdata[3]}" +
