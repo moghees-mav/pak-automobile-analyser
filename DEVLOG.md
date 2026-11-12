@@ -1,8 +1,8 @@
 # DEVLOG — PakWheels Scraper & Visualizer
 
 > Single source of truth for roadmap progress, state changes and hand-off notes.
-> **Last updated:** 2026-10-26
-> **Current status:** `Feature 2: Complete`
+> **Last updated:** 2026-11-12
+> **Current status:** `Task 4.2: Complete`
 
 ---
 
@@ -14,9 +14,34 @@
 | Feature 1 | FMV & Deal Rating Engine — curve fitting, residuals, z-scores, deal surfacing | **1.1 & 1.2 Done; 1.3 deferred** |
 | **Feature 2** | Multi-Model Comparative Visualizations — multi-trace overlay, city-wise boxplots | **Done** |
 | Feature 3 | Historical Tracking & Price Drops — SQLite storage, snapshot comparisons, price-drop badging | Not started |
-| Feature 4 | Advanced Filters & PDF Market Report — UI sliders, PDF generation | Not started |
+| **Task 4.1** | Comprehensive PakWheels Search Filter Integration | **Done** |
+| **Task 4.2** | Generic Search Scraper & Cross-Model Normalization | **Done** |
+| Task 4.3 | Arbitrage & Flip Opportunity Matrix UI | Next |
+| Task 4.4 | Export & Deal Alert Dashboard | Pending |
 
 ### Active Micro-Task
+
+**`Task 4.2: Generic Search Scraper & Cross-Model Normalization — Complete`**
+
+Delivered in Task 4.2:
+- **Dynamic Listing Grouping (`pw_scraper.py`):** Group listings dynamically across mixed search results by `(make, model, year)` or optionally by `(make, model, year, variant)`. Added `group_listings_dynamically` helper function.
+- **Group-Level Baseline FMV & Z-Score Math (`pw_scraper.py`):** Group-level baseline median and standard deviation calculated for groups with $N \ge 3$. Computes accurate local Z-Scores within model cohorts rather than relying on global cross-year variance.
+- **Arbitrage Potential Metrics (`pw_scraper.py`):**
+  - `pkr_below_fmv`: Direct arbitrage spread ($FMV - \text{price}$) in PKR.
+  - `pct_below_fmv`: Percentage discount relative to group baseline FMV.
+  - `fmv`: Baseline Fair Market Value in PKR.
+  - `is_underpriced_outlier`: Flag identifying under-priced flip candidates ($Z < -1.0$).
+  - Added `calculate_arbitrage_metrics` helper.
+- **Scraper Parser Normalization (`pw_scraper.py`):**
+  - Enhanced `parse_listing_card` to infer `derived_model` using catalogue and title tokens when scraping generic filter searches.
+  - Enhanced `parse_variant` to handle trailing model years in titles.
+  - Preserves row-level `make_model` across generic multi-model scrape results.
+  - Updated `build_scatter_payload` and `FMV_COLUMNS` to include arbitrage metrics.
+- **Test Coverage (`tests/test_parsers.py`):** Added 5 comprehensive tests verifying cross-model grouping, FMV and Z-score derivation on groups with $N \ge 3$, variant grouping, arbitrage helpers, and dynamic card parsing (88/88 tests passing).
+
+---
+
+### Previous Track Status
 
 **`Task 4.1: Comprehensive PakWheels Search Filter Integration — Complete`**
 

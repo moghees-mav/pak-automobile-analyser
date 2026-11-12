@@ -844,6 +844,8 @@ def parse_variant(
     rest = parts[index:]
     if rest and YEAR_RE.fullmatch(rest[0]):
         rest = rest[1:]
+    if rest and YEAR_RE.fullmatch(rest[-1]):
+        rest = rest[:-1]
 
     variant = re.sub(r"\s+", " ", " ".join(rest)).strip(" -,")
     return variant or None
@@ -892,6 +894,9 @@ FMV_COLUMNS = [
     "z_score",
     "deal_rating",
     "fmv_method",
+    "fmv",
+    "pkr_below_fmv",
+    "pct_below_fmv",
 ]
 
 LISTING_COLUMNS = [
@@ -1056,6 +1061,20 @@ def parse_listing_card(
         first_token = title.split()[0].lower() if title.split() else ""
         if first_token:
             derived_make = first_token
+    if not derived_model and title:
+        title_lower = title.lower()
+        if derived_make and derived_make.lower() in FALLBACK_CATALOGUE:
+            for km in sorted(FALLBACK_CATALOGUE[derived_make.lower()], key=len, reverse=True):
+                pattern = r"\b" + re.escape(km.replace("-", " ")) + r"\b|\b" + re.escape(km) + r"\b"
+                if re.search(pattern, title_lower):
+                    derived_model = km
+                    break
+        if not derived_model:
+            parts = title.split()
+            if len(parts) > 1 and parts[0].lower() == (derived_make or "").lower():
+                second = parts[1].lower()
+                if not second.isdigit() and len(second) > 1 and second != "for":
+                    derived_model = second
 
     variant = parse_variant(title, make=derived_make, model=derived_model)
     dated_node = card.select_one(DATED_SELECTOR)
@@ -1765,7 +1784,9 @@ def scrape_pakwheels_targets(
             filters=filters,
         )
         frame = frame.copy()
-        frame["make_model"] = make_model_label(make, model)
+        label = make_model_label(make, model)
+        if label:
+            frame["make_model"] = label
         return frame
 
     owns_session = session is None
@@ -2081,33 +2102,103 @@ def _text_key_column(frame: pd.DataFrame, name: str) -> pd.Series:
     return values.where(values.notna(), "").astype(str).str.strip()
 
 
-def calculate_fmv_and_deal_scores(df: Optional[pd.DataFrame]) -> pd.DataFrame:
-    """Attach fair-market-value estimates and deal labels to a listings frame.
+def is_underpriced_outlier(z_score: Optional[float], threshold: float = -1.0) -> bool:
+    """Identify whether a listing is an under-priced arbitrage outlier (z < -1.0)."""
+    try:
+        val = float(z_score)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(val) and val < threshold
 
-    For every variant with at least :data:`FMV_MIN_POINTS` usable rows (finite
-    positive price and a sane model year), a quadratic ``price ~ model year``
-    curve is fitted with :func:`scipy.linalg.lstsq`; the model year is centred
-    and scaled first so PKR-sized prices stay numerically stable. Each listing
-    then gets:
 
-    * ``expected_price_pkr`` -- FMV from its variant curve, or a model-level
-      median when the variant sample is too small / cannot be fitted,
-    * ``residual_pkr`` -- ``price_pkr - expected_price_pkr``,
-    * ``z_score`` -- residual divided by the variant's residual standard
-      deviation (model price standard deviation for fallback rows),
+def calculate_arbitrage_metrics(
+    price_pkr: Optional[float], fmv: Optional[float]
+) -> tuple[Optional[float], Optional[float]]:
+    """Derive arbitrage spread (PKR) and discount percentage against baseline FMV.
+
+    Returns ``(pkr_below_fmv, pct_below_fmv)`` where:
+    * ``pkr_below_fmv = fmv - price_pkr`` (positive means bargain below market value)
+    * ``pct_below_fmv = (pkr_below_fmv / fmv) * 100.0``
+    """
+    try:
+        p = float(price_pkr)
+        f = float(fmv)
+    except (TypeError, ValueError):
+        return None, None
+    if not (math.isfinite(p) and math.isfinite(f) and f > 0):
+        return None, None
+    pkr_below = round(f - p, 2)
+    pct_below = round((pkr_below / f) * 100.0, 2)
+    return pkr_below, pct_below
+
+
+def group_listings_dynamically(
+    df: Optional[pd.DataFrame], by_variant: bool = False, min_group_size: int = 3
+) -> dict[tuple, pd.DataFrame]:
+    """Group listings dynamically by (make, model, year, variant) or (make, model, year).
+
+    Only returns groups containing at least ``min_group_size`` listings.
+    """
+    if df is None or df.empty:
+        return {}
+    frame = df.copy()
+    make = _text_key_column(frame, "make").str.casefold()
+    model = _text_key_column(frame, "model").str.casefold()
+    if "year" in frame.columns:
+        year = pd.to_numeric(frame["year"], errors="coerce")
+    else:
+        year = pd.Series(float("nan"), index=frame.index)
+
+    if by_variant:
+        variant = _text_key_column(frame, "variant")
+        family = _text_key_column(frame, "variant_family")
+        variant = variant.where(variant.str.len() > 0, family)
+        keys = list(zip(make, model, year, variant))
+    else:
+        keys = list(zip(make, model, year))
+
+    frame["_group_key"] = pd.Series(keys, index=frame.index, dtype="object")
+    groups = {}
+    for key, sub in frame.groupby("_group_key", sort=False):
+        if len(sub) >= min_group_size:
+            groups[key] = sub.drop(columns=["_group_key"])
+    return groups
+
+
+def calculate_fmv_and_deal_scores(
+    df: Optional[pd.DataFrame], group_by_variant: bool = False
+) -> pd.DataFrame:
+    """Attach fair-market-value estimates, deal labels, and arbitrage metrics.
+
+    Supports mixed search results across multiple brands, models, and variants.
+    Groups scraped listings dynamically by ``(make, model, year)`` (or
+    ``(make, model, year, variant)`` when ``group_by_variant=True``).
+
+    For every variant with at least :data:`FMV_MIN_POINTS` usable rows across
+    multiple years, a quadratic ``price ~ model year`` curve is fitted. For
+    other listings, group-level baseline FMV (median) and group Z-scores are
+    calculated for groups containing sufficient data points (:math:`N \\ge 3`).
+
+    Each listing receives:
+    * ``expected_price_pkr`` / ``fmv`` -- group/curve baseline Fair Market Value
+    * ``residual_pkr`` -- ``price_pkr - expected_price_pkr``
+    * ``pkr_below_fmv`` -- ``expected_price_pkr - price_pkr`` (arbitrage potential)
+    * ``pct_below_fmv`` -- discount percentage against baseline FMV
+    * ``z_score`` -- residual divided by group standard deviation
     * ``deal_rating`` -- ``Great Deal`` / ``Good Deal`` / ``Fair Price`` /
-      ``Overpriced``, or ``Unknown`` when no estimate could be produced,
+      ``Overpriced``, or ``Unknown``
     * ``fmv_method`` -- provenance: ``variant_quadratic``,
-      ``model_year_median``, ``model_median`` or ``unavailable``.
-
-    Graceful fallbacks, in order: median of the same make/model/model-year
-    (>= 2 listings), then the median of the whole make/model. Rows without a
-    usable price keep ``NaN`` estimates and the ``Unknown`` label. The input
-    frame is never mutated -- a copy with the same index and row order is
-    returned, ready for the single ``refresh_job_outputs()`` rebuild path.
+      ``variant_year_median``, ``model_year_median``, ``model_median`` or ``unavailable``.
     """
     frame = df.copy() if df is not None else pd.DataFrame(columns=LISTING_COLUMNS)
-    for column in ("expected_price_pkr", "residual_pkr", "z_score"):
+    for column in (
+        "expected_price_pkr",
+        "residual_pkr",
+        "z_score",
+        "fmv",
+        "pkr_below_fmv",
+        "pct_below_fmv",
+    ):
         frame[column] = float("nan")
     frame["deal_rating"] = UNKNOWN_DEAL_RATING
     frame["fmv_method"] = "unavailable"
@@ -2133,6 +2224,45 @@ def calculate_fmv_and_deal_scores(df: Optional[pd.DataFrame]) -> pd.DataFrame:
 
     make = _text_key_column(frame, "make").str.casefold()
     model = _text_key_column(frame, "model").str.casefold()
+
+    # Generic search cross-model deduction: if make or model was empty, infer from title or URL
+    if "title" in frame.columns or "url" in frame.columns:
+        titles = _text_key_column(frame, "title")
+        urls = _text_key_column(frame, "url")
+        for idx in frame.index:
+            cur_mk = make.at[idx]
+            cur_md = model.at[idx]
+            if not cur_mk or not cur_md:
+                u = urls.at[idx]
+                if u:
+                    path_slug = urlparse(u).path.split("/")[-1]
+                    m = re.match(r"^([a-z0-9]+)-([a-z0-9\-]+?)-(\d{4})-for-sale", path_slug)
+                    if m:
+                        if not cur_mk:
+                            cur_mk = m.group(1).lower()
+                        if not cur_md:
+                            cur_md = m.group(2).lower()
+                t = titles.at[idx]
+                if t:
+                    parts = t.split()
+                    if not cur_mk and parts:
+                        first = parts[0].lower()
+                        if first in FALLBACK_CATALOGUE or len(parts) > 1:
+                            cur_mk = first
+                    if not cur_md and cur_mk and cur_mk in FALLBACK_CATALOGUE:
+                        t_lower = t.lower()
+                        for km in sorted(FALLBACK_CATALOGUE[cur_mk], key=len, reverse=True):
+                            pattern = r"\b" + re.escape(km.replace("-", " ")) + r"\b|\b" + re.escape(km) + r"\b"
+                            if re.search(pattern, t_lower):
+                                cur_md = km
+                                break
+                    if not cur_md and parts and len(parts) > 1 and parts[0].lower() == cur_mk:
+                        second = parts[1].lower()
+                        if not second.isdigit() and len(second) > 1 and second != "for":
+                            cur_md = second
+                make.at[idx] = cur_mk
+                model.at[idx] = cur_md
+
     variant = _text_key_column(frame, "variant")
     family = _text_key_column(frame, "variant_family")
     variant = variant.where(variant.str.len() > 0, family)
@@ -2156,13 +2286,34 @@ def calculate_fmv_and_deal_scores(df: Optional[pd.DataFrame]) -> pd.DataFrame:
     year_groups = (
         work.loc[price_ok & year_ok]
         .groupby(["model_key", "year"])["price"]
-        .agg(["median", "count"])
+        .agg(["median", "std", "count"])
     )
-    year_medians = {
-        (key[0], float(key[1])): float(row["median"])
+    year_stats = {
+        (key[0], float(key[1])): {
+            "median": float(row["median"]),
+            "std": float(row["std"]) if pd.notna(row["std"]) else 0.0,
+            "count": int(row["count"]),
+        }
         for key, row in year_groups.iterrows()
         if int(row["count"]) >= 2
     }
+
+    variant_year_stats = {}
+    if group_by_variant:
+        variant_groups = (
+            work.loc[fit_ok]
+            .groupby(["variant_key", "year"])["price"]
+            .agg(["median", "std", "count"])
+        )
+        variant_year_stats = {
+            (key[0], float(key[1])): {
+                "median": float(row["median"]),
+                "std": float(row["std"]) if pd.notna(row["std"]) else 0.0,
+                "count": int(row["count"]),
+            }
+            for key, row in variant_groups.iterrows()
+            if int(row["count"]) >= 3 and key[0][2] != ""
+        }
 
     count = len(frame)
     expected_values = np.full(count, np.nan, dtype=float)
@@ -2170,6 +2321,8 @@ def calculate_fmv_and_deal_scores(df: Optional[pd.DataFrame]) -> pd.DataFrame:
     z_values = np.full(count, np.nan, dtype=float)
     ratings = [UNKNOWN_DEAL_RATING] * count
     methods = ["unavailable"] * count
+    pkr_below_values = np.full(count, np.nan, dtype=float)
+    pct_below_values = np.full(count, np.nan, dtype=float)
     fitted_positions: set[int] = set()
 
     # --- Primary path: per-variant quadratic year -> price curve.
@@ -2184,55 +2337,93 @@ def calculate_fmv_and_deal_scores(df: Optional[pd.DataFrame]) -> pd.DataFrame:
             if not math.isfinite(expected):
                 continue
             expected = round(expected, 2)
-            residual = float(row["price"]) - expected
+            price_val = float(row["price"])
+            residual = price_val - expected
             spread = curve["residual_std"]
             z_score = residual / spread if spread > 0 else 0.0
             z_score = round(z_score, 4)
+            pkr_below = round(expected - price_val, 2)
+            pct_below = round((pkr_below / expected) * 100.0, 2) if expected > 0 else 0.0
+
             expected_values[position] = expected
             residual_values[position] = round(residual, 2)
             z_values[position] = z_score
             ratings[position] = deal_rating_from_z(z_score)
             methods[position] = "variant_quadratic"
+            pkr_below_values[position] = pkr_below
+            pct_below_values[position] = pct_below
             fitted_positions.add(position)
 
-    # --- Fallback path: model-year median, then whole-model median.
+    # --- Group-level baseline path: (variant, year) or (model, year), then model median.
     for position in np.flatnonzero(price_ok.to_numpy()):
         position = int(position)
         if position in fitted_positions:
             continue
         price = float(work.at[position, "price"])
         model_key = work.at[position, "model_key"]
+        variant_key = work.at[position, "variant_key"]
         model_year = work.at[position, "year"]
         expected = None
         method = "model_median"
+        group_std = None
+        group_count = 0
+
         if pd.notna(model_year):
-            expected = year_medians.get((model_key, float(model_year)))
-            if expected is not None:
+            if group_by_variant and (variant_key, float(model_year)) in variant_year_stats:
+                vstat = variant_year_stats[(variant_key, float(model_year))]
+                expected = vstat["median"]
+                method = "variant_year_median"
+                group_std = vstat["std"]
+                group_count = vstat["count"]
+            elif (model_key, float(model_year)) in year_stats:
+                stat = year_stats[(model_key, float(model_year))]
+                expected = stat["median"]
                 method = "model_year_median"
+                group_std = stat["std"]
+                group_count = stat["count"]
+
         if expected is None:
             expected = model_medians.get(model_key)
+            method = "model_median"
+
         if expected is None or not math.isfinite(float(expected)):
             continue
+
         expected = float(expected)
         expected = round(expected, 2)
         residual = price - expected
-        spread = model_stdevs.get(model_key)
+
+        # Group-level baseline Z-Score for groups containing sufficient data points (N >= 3)
+        if group_count >= 3 and group_std is not None and group_std > 0:
+            spread = group_std
+        else:
+            spread = model_stdevs.get(model_key)
+
         if spread is None or not math.isfinite(float(spread)) or float(spread) <= 0:
             z_score = 0.0
         else:
             z_score = residual / float(spread)
         z_score = round(z_score, 4)
+
+        pkr_below = round(expected - price, 2)
+        pct_below = round((pkr_below / expected) * 100.0, 2) if expected > 0 else 0.0
+
         expected_values[position] = expected
         residual_values[position] = round(residual, 2)
         z_values[position] = z_score
         ratings[position] = deal_rating_from_z(z_score)
         methods[position] = method
+        pkr_below_values[position] = pkr_below
+        pct_below_values[position] = pct_below
 
     frame["expected_price_pkr"] = expected_values
     frame["residual_pkr"] = residual_values
     frame["z_score"] = z_values
     frame["deal_rating"] = pd.Series(ratings, index=frame.index, dtype="object")
     frame["fmv_method"] = pd.Series(methods, index=frame.index, dtype="object")
+    frame["fmv"] = expected_values
+    frame["pkr_below_fmv"] = pkr_below_values
+    frame["pct_below_fmv"] = pct_below_values
     frame.index = original_index
     return frame
 
@@ -2352,6 +2543,7 @@ def build_scatter_payload(
     frame = df.copy()
     score_columns = (
         "expected_price_pkr", "residual_pkr", "z_score", "deal_rating", "fmv_method",
+        "fmv", "pkr_below_fmv", "pct_below_fmv",
     )
     has_scores = any(
         column in frame.columns and frame[column].notna().any()
@@ -2391,8 +2583,12 @@ def build_scatter_payload(
                 "expected_price_pkr": expected_price_pkr,
                 "expected_price_lacs": round(expected_price_pkr / 100_000.0, 2)
                 if expected_price_pkr is not None else None,
+                "fmv": expected_price_pkr,
                 "residual_pkr": _payload_number(record.get("residual_pkr"), 2),
+                "pkr_below_fmv": _payload_number(record.get("pkr_below_fmv"), 2),
+                "pct_below_fmv": _payload_number(record.get("pct_below_fmv"), 2),
                 "z_score": _payload_number(record.get("z_score"), 4),
+                "is_underpriced": is_underpriced_outlier(record.get("z_score")),
                 "deal_rating": _payload_label(
                     record.get("deal_rating"), UNKNOWN_DEAL_RATING
                 ),

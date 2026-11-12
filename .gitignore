@@ -6,7 +6,7 @@ __pycache__/
 # Local Test/Scratch Files
 _*.txt
 _envcheck.py
-tests/
+.pytest_cache/
 
 # App Output Data & Logs
 data/
