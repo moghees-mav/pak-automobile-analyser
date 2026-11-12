@@ -397,9 +397,188 @@ class PoliteSession:
         self.session.close()
 
 
-def search_url(make: str, model: str) -> str:
-    """Build the (robots-allowed) search URL for a make/model combination."""
-    url = SITE_ROOT + SEARCH_PATH.format(make=make, model=model)
+def build_search_path(
+    make: Optional[str] = None,
+    model: Optional[str] = None,
+    filters: Optional[dict] = None,
+) -> str:
+    """Build a PakWheels search URL path combining make/model and search flags.
+
+    PakWheels URL structure:
+    /used-cars/search/-/[mk_<make>/][md_<model>/][pr_<min>_<max>/][yr_<min>_<max>/]...
+
+    Supported filter keys:
+      - pr_min, pr_max (price range in PKR)
+      - yr_min, yr_max (year range)
+      - km_min, km_max (mileage range in km)
+      - city or cities (e.g. 'islamabad', 'lahore' -> 'ct_islamabad')
+      - cc_min, cc_max (engine capacity in cc)
+      - transmission (e.g. 'automatic', 'manual', or list)
+      - fuel_type (e.g. 'petrol', 'diesel', 'hybrid', 'electric', or list)
+      - body_type (e.g. 'sedan', 'suv', 'hatchback')
+      - seller_type (e.g. 'individual', 'dealer')
+      - color (e.g. 'white', 'black')
+      - raw flags (e.g. 'pr_2000000_3500000', 'ct_islamabad')
+    """
+    filters = dict(filters or {})
+    segments: list[str] = []
+
+    # Make & Model
+    mk = filters.pop("make", None) or make
+    md = filters.pop("model", None) or model
+    if mk:
+        segments.append(f"mk_{normalize_slug(mk, kind='make')}")
+    if md:
+        segments.append(f"md_{normalize_slug(md, kind='model')}")
+
+    # Price range
+    pr_min = filters.pop("pr_min", None)
+    pr_max = filters.pop("pr_max", None)
+    p_min_has = pr_min not in (None, "")
+    p_max_has = pr_max not in (None, "")
+    if p_min_has and p_max_has:
+        segments.append(f"pr_{int(pr_min)}_{int(pr_max)}")
+    elif p_min_has:
+        segments.append(f"pr_{int(pr_min)}_more")
+    elif p_max_has:
+        segments.append(f"pr_less_{int(pr_max)}")
+
+    # Year range
+    yr_min = filters.pop("yr_min", None)
+    yr_max = filters.pop("yr_max", None)
+    y_min_has = yr_min not in (None, "")
+    y_max_has = yr_max not in (None, "")
+    if y_min_has and y_max_has:
+        segments.append(f"yr_{int(yr_min)}_{int(yr_max)}")
+    elif y_min_has:
+        segments.append(f"yr_{int(yr_min)}_later")
+    elif y_max_has:
+        segments.append(f"yr_earlier_{int(yr_max)}")
+
+    # Mileage range
+    km_min = filters.pop("km_min", None)
+    km_max = filters.pop("km_max", None)
+    k_min_has = km_min not in (None, "")
+    k_max_has = km_max not in (None, "")
+    if k_min_has and k_max_has:
+        segments.append(f"km_{int(km_min)}_{int(km_max)}")
+    elif k_min_has:
+        segments.append(f"km_{int(km_min)}_more")
+    elif k_max_has:
+        segments.append(f"km_less_{int(km_max)}")
+
+    # Engine capacity range
+    cc_min = filters.pop("cc_min", None)
+    cc_max = filters.pop("cc_max", None)
+    c_min_has = cc_min not in (None, "")
+    c_max_has = cc_max not in (None, "")
+    if c_min_has and c_max_has:
+        segments.append(f"cc_{int(cc_min)}_{int(cc_max)}")
+    elif c_min_has:
+        segments.append(f"cc_{int(cc_min)}_more")
+    elif c_max_has:
+        segments.append(f"cc_less_{int(cc_max)}")
+
+    # City (ct_<city>)
+    cities = filters.pop("city", None) or filters.pop("cities", None)
+    if cities:
+        if isinstance(cities, str):
+            cities = [c.strip() for c in cities.split(",") if c.strip()]
+        for c in cities:
+            slug = re.sub(r"[^a-z0-9]+", "-", str(c).strip().lower()).strip("-")
+            if slug:
+                segments.append(f"ct_{slug}")
+
+    # Transmission (transmission_auto, transmission_manual)
+    trans = filters.pop("transmission", None)
+    if trans:
+        if isinstance(trans, str):
+            trans = [t.strip().lower() for t in trans.split(",") if t.strip()]
+        for t in trans:
+            t_str = str(t).lower().strip()
+            if "auto" in t_str or "cvt" in t_str:
+                segments.append("transmission_auto")
+            elif "manual" in t_str:
+                segments.append("transmission_manual")
+
+    # Fuel type (fuel_petrol, fuel_diesel, fuel_hybrid, fuel_electric)
+    fuels = filters.pop("fuel_type", None) or filters.pop("fuel", None)
+    if fuels:
+        if isinstance(fuels, str):
+            fuels = [f.strip().lower() for f in fuels.split(",") if f.strip()]
+        for f in fuels:
+            f_str = str(f).lower().strip()
+            if "petrol" in f_str:
+                segments.append("fuel_petrol")
+            elif "diesel" in f_str:
+                segments.append("fuel_diesel")
+            elif "hybrid" in f_str:
+                segments.append("fuel_hybrid")
+            elif "electric" in f_str:
+                segments.append("fuel_electric")
+            elif "cng" in f_str:
+                segments.append("fuel_cng")
+            elif "lpg" in f_str:
+                segments.append("fuel_lpg")
+
+    # Body type (e.g. bt_sedan, bt_suv)
+    bodies = filters.pop("body_type", None)
+    if bodies:
+        if isinstance(bodies, str):
+            bodies = [b.strip() for b in bodies.split(",") if b.strip()]
+        for b in bodies:
+            slug = re.sub(r"[^a-z0-9]+", "-", str(b).strip().lower()).strip("-")
+            if slug:
+                segments.append(f"bt_{slug}")
+
+    # Seller type (e.g. se_individual, se_dealer)
+    seller = filters.pop("seller_type", None)
+    if seller:
+        s_str = str(seller).strip().lower()
+        if "ind" in s_str:
+            segments.append("se_individual")
+        elif "deal" in s_str:
+            segments.append("se_dealer")
+
+    # Color (e.g. cl_white, cl_black)
+    colors = filters.pop("color", None)
+    filters.pop("exclude_keywords", None)
+    if colors:
+        if isinstance(colors, str):
+            colors = [cl.strip() for cl in colors.split(",") if cl.strip()]
+        for cl in colors:
+            slug = re.sub(r"[^a-z0-9]+", "-", str(cl).strip().lower()).strip("-")
+            if slug:
+                segments.append(f"cl_{slug}")
+
+    # Remaining explicit filter flags
+    for k, v in filters.items():
+        if v is True or v == 1 or v == "1" or v == "true":
+            segments.append(str(k))
+        elif v is not None and v != "":
+            segments.append(f"{k}_{v}")
+
+    seen_seg = set()
+    deduped_segments = []
+    for seg in segments:
+        clean_seg = seg.strip("/")
+        if clean_seg and clean_seg not in seen_seg:
+            seen_seg.add(clean_seg)
+            deduped_segments.append(clean_seg)
+
+    if deduped_segments:
+        return "/used-cars/search/-/" + "/".join(deduped_segments) + "/"
+    return "/used-cars/search/-/"
+
+
+def search_url(
+    make: Optional[str] = None,
+    model: Optional[str] = None,
+    filters: Optional[dict] = None,
+) -> str:
+    """Build the (robots-allowed) search URL for a make/model combination and/or search filters."""
+    path = build_search_path(make=make, model=model, filters=filters)
+    url = SITE_ROOT + path
     return assert_url_allowed(url)
 
 
@@ -863,14 +1042,29 @@ def parse_listing_card(
             location = item
             break
 
-    variant = parse_variant(title, make=make, model=model)
+    derived_make = make
+    derived_model = model
+    if (not derived_make or not derived_model) and url:
+        path_slug = urlparse(url).path.split("/")[-1]
+        m = re.match(r"^([a-z0-9]+)-([a-z0-9\-]+?)-(\d{4})-for-sale", path_slug)
+        if m:
+            if not derived_make:
+                derived_make = m.group(1)
+            if not derived_model:
+                derived_model = m.group(2)
+    if not derived_make and title:
+        first_token = title.split()[0].lower() if title.split() else ""
+        if first_token:
+            derived_make = first_token
+
+    variant = parse_variant(title, make=derived_make, model=derived_model)
     dated_node = card.select_one(DATED_SELECTOR)
 
     return {
         "listing_id": extract_listing_id(url),
-        "make": make,
-        "model": model,
-        "make_model": make_model_label(make, model),
+        "make": derived_make,
+        "model": derived_model,
+        "make_model": make_model_label(derived_make, derived_model),
         "title": title,
         "variant": variant,
         "variant_family": variant_family(variant),
@@ -1194,17 +1388,18 @@ def estimate_eta(pages: int, delay: float, latency_s: float) -> float:
 
 def estimate_scrape(
     session: Optional[PoliteSession] = None,
-    make: Optional[Union[str, Iterable[object]]] = "honda",
-    model: Optional[str] = "civic",
+    make: Optional[Union[str, Iterable[object]]] = None,
+    model: Optional[str] = None,
     max_pages: Optional[int] = DEFAULT_PAGES,
     delay: float = DEFAULT_DELAY,
     sample_size: int = 5,
     first_page: Optional[FetchResult] = None,
     targets: Optional[Iterable[object]] = None,
+    filters: Optional[dict] = None,
 ) -> Estimate:
     """Fetch page 1 once and derive an accurate ETA for the requested scrape.
 
-    Supports single make/model or a list of ``targets`` (Feature 2).
+    Supports single make/model, search filters, or a list of ``targets`` (Feature 2).
     ``max_pages=None`` means "all available pages". ``first_page`` allows the
     caller to supply an already-fetched page 1 (so the web UI never downloads
     the same page twice).
@@ -1221,6 +1416,7 @@ def estimate_scrape(
                 delay=delay,
                 sample_size=sample_size,
                 first_page=first_page,
+                filters=filters,
             )
         owns_session = session is None
         session = session or PoliteSession(delay=delay)
@@ -1237,6 +1433,7 @@ def estimate_scrape(
                         delay=delay,
                         sample_size=sample_size,
                         first_page=fp,
+                        filters=filters,
                     )
                 )
         finally:
@@ -1255,7 +1452,7 @@ def estimate_scrape(
         combined = Estimate(
             make="multi",
             model="comparison",
-            url=search_url(*pairs[0]),
+            url=search_url(*pairs[0], filters=filters),
             delay=max(delay, MIN_DELAY),
             latency_s=round(avg_latency, 2),
             total_results=sum(known_results) if known_results else None,
@@ -1267,12 +1464,14 @@ def estimate_scrape(
         )
         return combined
 
-    make_str = str(make or "honda")
-    model_str = str(model or "civic")
+    make_str = str(make) if make else None
+    model_str = str(model) if model else None
     owns_session = session is None
     session = session or PoliteSession(delay=delay)
-    url = search_url(make_str, model_str)
-    estimate = Estimate(make=make_str, model=model_str, url=url, delay=max(delay, MIN_DELAY))
+    url = search_url(make_str, model_str, filters=filters)
+    est_make = make_str or "deal-scanner"
+    est_model = model_str or "generic"
+    estimate = Estimate(make=est_make, model=est_model, url=url, delay=max(delay, MIN_DELAY))
 
     try:
         result = first_page if first_page is not None else session.get(url)
@@ -1340,7 +1539,11 @@ def scrape_pakwheels_model(
     first_page: Optional[FetchResult] = None,
     pages_available: Optional[int] = None,
     targets: Optional[Iterable[object]] = None,
+    filters: Optional[dict] = None,
+    **kwargs,
 ) -> pd.DataFrame:
+    if filters and "filters" not in kwargs:
+        kwargs["filters"] = filters
     """Scrape ``pages`` of results for one make/model (or a list of targets) and return a DataFrame.
 
     * Supports single make/model or a list of ``targets`` (Feature 2).
@@ -1371,19 +1574,20 @@ def scrape_pakwheels_model(
             first_pages=cached_first,
         )
 
-    if not make or not model:
-        raise ValueError("Both 'make' and 'model' are required unless 'targets' is provided.")
+    make_str = str(make) if make else None
+    model_str = str(model) if model else None
+    search_filters = kwargs.get("filters")
+    if not make_str and not model_str and not search_filters:
+        raise ValueError("Either 'make'/'model', 'targets', or 'filters' must be provided.")
 
-    make_str = str(make)
-    model_str = str(model)
     owns_session = session is None
     session = session or PoliteSession(delay=delay)
     delay = max(float(delay), MIN_DELAY)
-    url = search_url(make_str, model_str)
+    url = search_url(make_str, model_str, filters=search_filters)
 
     def notify(stage: str, **extra) -> None:
         if progress_cb:
-            event = {"stage": stage, "make": make, "model": model}
+            event = {"stage": stage, "make": make_str or "deal-scanner", "model": model_str or "generic"}
             event.update(extra)
             try:
                 progress_cb(event)
@@ -1453,11 +1657,24 @@ def scrape_pakwheels_model(
             skipped_no_price += max(0, len(cards) - len(page_rows))
 
             new_rows = []
+            exclude_keywords = [
+                kw.strip().lower()
+                for kw in (search_filters.get("exclude_keywords") or [])
+                if kw and kw.strip()
+            ] if search_filters and isinstance(search_filters.get("exclude_keywords"), list) else (
+                [kw.strip().lower() for kw in str(search_filters.get("exclude_keywords") or "").split(",") if kw.strip()]
+                if search_filters and search_filters.get("exclude_keywords") else []
+            )
+
             for row in page_rows:
                 key = str(row.get("listing_id") or row.get("url") or "")
                 if key and key in seen:
                     duplicate_rows += 1
                     continue
+                if exclude_keywords:
+                    title_search = f"{row.get('title') or ''} {row.get('variant') or ''} {row.get('make') or ''} {row.get('model') or ''}".lower()
+                    if any(kw in title_search for kw in exclude_keywords):
+                        continue
                 if key:
                     seen.add(key)
                 new_rows.append(row)
@@ -1512,6 +1729,7 @@ def scrape_pakwheels_targets(
     should_stop: Optional[Callable[[], bool]] = None,
     pages_available: Optional[int] = None,
     first_pages: Optional[dict] = None,
+    filters: Optional[dict] = None,
 ) -> pd.DataFrame:
     """Scrape several ``(make, model)`` targets in one job (Feature 2).
 
@@ -1544,6 +1762,7 @@ def scrape_pakwheels_targets(
             should_stop=should_stop,
             first_page=first_pages.get((make, model)),
             pages_available=pages_available,
+            filters=filters,
         )
         frame = frame.copy()
         frame["make_model"] = make_model_label(make, model)
@@ -1609,6 +1828,7 @@ def scrape_pakwheels_targets(
                 should_stop=should_stop,
                 first_page=first_pages.get((make, model)),
                 pages_available=pages_available,
+                filters=filters,
             )
             frame = frame.copy()
             frame["make_model"] = label

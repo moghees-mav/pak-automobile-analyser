@@ -187,3 +187,64 @@ tbody tr:hover { background: #f8fafd; }
   .topbar { padding: 14px; }
   .view-tabs { overflow-x: auto; white-space: nowrap; }
 }
+
+/* Filter Matrix Details & Body */
+.filter-matrix-details {
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+  overflow: hidden;
+}
+.filter-matrix-summary {
+  padding: 10px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  background: #f4f6fa;
+  border-bottom: 1px solid transparent;
+  user-select: none;
+}
+.filter-matrix-details[open] .filter-matrix-summary {
+  border-bottom-color: var(--line);
+}
+.filter-matrix-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.filter-check-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 13px;
+}
+.filter-group-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+label.check.inline {
+  display: inline-flex;
+  margin: 0;
+}
+.filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: #f8fafd;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  width: 100%;
+}

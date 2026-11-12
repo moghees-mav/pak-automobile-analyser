@@ -59,6 +59,124 @@
       <div id="target-tags" class="target-tags"></div>
     </div>
 
+    <!-- Generic Search & Arbitrage Filter Matrix -->
+    <details class="filter-matrix-details" id="filter-matrix-details">
+      <summary class="filter-matrix-summary">
+        <span><strong>Custom Search & Arbitrage Filters</strong> <span class="muted">(Optional / Generic Search)</span></span>
+      </summary>
+      <div class="filter-matrix-body">
+        <div class="row">
+          <div class="field">
+            <label for="filter-pr-min">Min Price (PKR)</label>
+            <input id="filter-pr-min" type="number" step="50000" placeholder="e.g. 2000000" />
+          </div>
+          <div class="field">
+            <label for="filter-pr-max">Max Price (PKR)</label>
+            <input id="filter-pr-max" type="number" step="50000" placeholder="e.g. 3500000" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="filter-yr-min">Min Year</label>
+            <input id="filter-yr-min" type="number" min="1990" max="2026" placeholder="e.g. 2015" />
+          </div>
+          <div class="field">
+            <label for="filter-yr-max">Max Year</label>
+            <input id="filter-yr-max" type="number" min="1990" max="2026" placeholder="e.g. 2022" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="filter-km-min">Min Mileage (km)</label>
+            <input id="filter-km-min" type="number" step="5000" placeholder="e.g. 10000" />
+          </div>
+          <div class="field">
+            <label for="filter-km-max">Max Mileage (km)</label>
+            <input id="filter-km-max" type="number" step="5000" placeholder="e.g. 80000" />
+          </div>
+        </div>
+
+        <div class="filter-check-group">
+          <span class="filter-group-label">Cities / Locations (Multi-Select):</span>
+          <div class="filter-chips">
+            <label class="check inline"><input type="checkbox" name="filter-city" value="islamabad" /> Islamabad</label>
+            <label class="check inline"><input type="checkbox" name="filter-city" value="lahore" /> Lahore</label>
+            <label class="check inline"><input type="checkbox" name="filter-city" value="karachi" /> Karachi</label>
+            <label class="check inline"><input type="checkbox" name="filter-city" value="rawalpindi" /> Rawalpindi</label>
+            <label class="check inline"><input type="checkbox" name="filter-city" value="peshawar" /> Peshawar</label>
+            <label class="check inline"><input type="checkbox" name="filter-city" value="faisalabad" /> Faisalabad</label>
+            <label class="check inline"><input type="checkbox" name="filter-city" value="multan" /> Multan</label>
+            <label class="check inline"><input type="checkbox" name="filter-city" value="sialkot" /> Sialkot</label>
+            <label class="check inline"><input type="checkbox" name="filter-city" value="gujranwala" /> Gujranwala</label>
+          </div>
+        </div>
+
+        <div class="filter-check-group">
+          <span class="filter-group-label">Body Types (Multi-Select):</span>
+          <div class="filter-chips">
+            <label class="check inline"><input type="checkbox" name="filter-body" value="sedan" /> Sedan</label>
+            <label class="check inline"><input type="checkbox" name="filter-body" value="suv" /> SUV</label>
+            <label class="check inline"><input type="checkbox" name="filter-body" value="hatchback" /> Hatchback</label>
+            <label class="check inline"><input type="checkbox" name="filter-body" value="crossover" /> Crossover</label>
+            <label class="check inline"><input type="checkbox" name="filter-body" value="van" /> Van</label>
+            <label class="check inline"><input type="checkbox" name="filter-body" value="mini-van" /> Mini Van</label>
+            <label class="check inline"><input type="checkbox" name="filter-body" value="station-wagon" /> Station Wagon</label>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="filter-cc-min">Min Engine (cc)</label>
+            <input id="filter-cc-min" type="number" step="100" placeholder="e.g. 1000" />
+          </div>
+          <div class="field">
+            <label for="filter-cc-max">Max Engine (cc)</label>
+            <input id="filter-cc-max" type="number" step="100" placeholder="e.g. 1800" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="filter-seller-type">Seller Type</label>
+            <select id="filter-seller-type">
+              <option value="">All Sellers</option>
+              <option value="individual">Individual</option>
+              <option value="dealer">Dealer</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="filter-color">Color</label>
+            <input id="filter-color" type="text" placeholder="e.g. white, black, silver" />
+          </div>
+        </div>
+
+        <div class="filter-check-group">
+          <span class="filter-group-label">Transmission:</span>
+          <label class="check inline"><input type="checkbox" id="filter-trans-auto" /> Automatic</label>
+          <label class="check inline"><input type="checkbox" id="filter-trans-manual" /> Manual</label>
+        </div>
+
+        <div class="filter-check-group">
+          <span class="filter-group-label">Fuel Type:</span>
+          <label class="check inline"><input type="checkbox" id="filter-fuel-petrol" /> Petrol</label>
+          <label class="check inline"><input type="checkbox" id="filter-fuel-diesel" /> Diesel</label>
+          <label class="check inline"><input type="checkbox" id="filter-fuel-hybrid" /> Hybrid</label>
+          <label class="check inline"><input type="checkbox" id="filter-fuel-electric" /> Electric</label>
+        </div>
+
+        <div class="field">
+          <label for="filter-exclude-keywords">Exclude / Skip Keywords <span class="muted">(e.g. baleno, cultus, accidental)</span></label>
+          <input id="filter-exclude-keywords" type="text" placeholder="Comma-separated models, trims, or words to skip" />
+        </div>
+
+        <div class="filter-actions">
+          <button type="button" id="btn-clear-filters" class="btn-link">Reset custom filters</button>
+        </div>
+      </div>
+    </details>
+
     <div class="row">
       <div class="field">
         <label for="pages">Pages to scrape</label>

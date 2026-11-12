@@ -51,14 +51,15 @@ class Job:
     """Everything the UI needs to know about one background scrape."""
 
     id: str
-    make: str
-    model: str
+    make: Optional[str]
+    model: Optional[str]
     pages: Optional[int]
     delay: float
     pages_available: Optional[int] = None
     #: Feature 2: every requested ``(make, model)`` slug pair; a single-model job
     #: holds one pair and behaves exactly as before.
     targets: list = field(default_factory=list)
+    filters: dict = field(default_factory=dict)
     state: str = "pending"  # pending | running | done | error | cancelled
     created_at: float = field(default_factory=time.time)
     started_at: Optional[float] = None
@@ -92,7 +93,11 @@ class Job:
     @property
     def target_pairs(self) -> list:
         """Requested ``(make, model)`` pairs (falls back to the primary pair)."""
-        return list(self.targets) or [(self.make, self.model)]
+        if self.targets:
+            return list(self.targets)
+        if self.make and self.model:
+            return [(self.make, self.model)]
+        return []
 
     @property
     def is_comparison(self) -> bool:
@@ -101,7 +106,9 @@ class Job:
     @property
     def make_model(self) -> str:
         """``"Honda Civic"`` for one model, ``"Honda Civic vs Toyota Corolla"`` for several."""
-        return pw.comparison_label(self.target_pairs)
+        if self.target_pairs:
+            return pw.comparison_label(self.target_pairs)
+        return "Deal Scanner (Custom Filters)" 
 
     @property
     def download_slug(self) -> str:
@@ -279,21 +286,25 @@ class JobManager:
 
     def create(
         self,
-        make: str,
-        model: str,
+        make: Optional[str],
+        model: Optional[str],
         pages: Optional[int],
         delay: float,
         pages_available: Optional[int],
         estimate: dict,
         targets: Optional[list] = None,
+        filters: Optional[dict] = None,
     ) -> Job:
-        """Register a job for one model, or for a ``targets`` list (Feature 2)."""
-        pairs = pw.normalize_targets(targets) if targets else [(make, model)]
+        """Register a job for one model, for a ``targets`` list, or custom filters."""
+        pairs = pw.normalize_targets(targets) if targets else ([(make, model)] if make and model else [])
+        primary_make = pairs[0][0] if pairs else (make or "")
+        primary_model = pairs[0][1] if pairs else (model or "")
         job = Job(
             id=uuid.uuid4().hex[:12],
-            make=pairs[0][0],
-            model=pairs[0][1],
+            make=primary_make,
+            model=primary_model,
             targets=pairs,
+            filters=dict(filters or {}),
             pages=pages,
             delay=max(float(delay), pw.MIN_DELAY),
             pages_available=pages_available,
@@ -429,25 +440,41 @@ def run_job(job: Job) -> None:
     job.started_at = time.time()
     session = pw.PoliteSession(delay=job.delay)
     pairs = job.target_pairs
-    title = f"PakWheels: {pw.comparison_label(pairs)}"
+    title = f"PakWheels: {job.make_model}"
     # Page 1 fetched by /api/estimate is reused per target (one request less each).
     first_pages = {}
     for pair in pairs:
         cached = cached_first_page(*pair)
         if cached is not None:
             first_pages[pair] = cached
+    generic_first = cached_first_page("deal-scanner", "generic") if not pairs else None
 
     try:
-        frame = pw.scrape_pakwheels_targets(
-            pairs,
-            pages=job.pages,
-            delay=job.delay,
-            session=session,
-            progress_cb=job.ingest,
-            should_stop=lambda: job.cancel_requested,
-            first_pages=first_pages,
-            pages_available=job.pages_available if len(pairs) == 1 else None,
-        )
+        if pairs:
+            frame = pw.scrape_pakwheels_targets(
+                pairs,
+                pages=job.pages,
+                delay=job.delay,
+                session=session,
+                progress_cb=job.ingest,
+                should_stop=lambda: job.cancel_requested,
+                first_pages=first_pages,
+                pages_available=job.pages_available if len(pairs) == 1 else None,
+                filters=job.filters,
+            )
+        else:
+            frame = pw.scrape_pakwheels_model(
+                make=job.make or None,
+                model=job.model or None,
+                pages=job.pages,
+                delay=job.delay,
+                session=session,
+                progress_cb=job.ingest,
+                should_stop=lambda: job.cancel_requested,
+                first_page=generic_first,
+                pages_available=job.pages_available,
+                filters=job.filters,
+            )
 
         generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         meta = {
@@ -545,14 +572,53 @@ def _targets_from_data(data: dict) -> list[tuple[str, str]]:
     return pw.normalize_targets(items)
 
 
-def _parse_request_payload() -> tuple[list[tuple[str, str]], Optional[int], float]:
+class RequestPayload(tuple):
+    """Tuple of (targets, pages, delay, filters) supporting legacy 3-element unpacking."""
+
+    def __new__(cls, targets, pages, delay, filters=None):
+        filters = filters or {}
+        return super().__new__(cls, (targets, pages, delay, filters))
+
+    @property
+    def targets(self):
+        return self[0]
+
+    @property
+    def pages(self):
+        return self[1]
+
+    @property
+    def delay(self):
+        return self[2]
+
+    @property
+    def filters(self):
+        return self[3]
+
+    def __iter__(self):
+        # Support legacy unpacking `targets, pages, delay = _parse_request_payload()`
+        yield self[0]
+        yield self[1]
+        yield self[2]
+
+
+def _parse_request_payload() -> RequestPayload:
     """Validate and normalise the JSON/form body sent by the UI.
 
-    Returns ``(targets, pages, delay)`` where *targets* is a non-empty list of
-    validated ``(make, model)`` slug pairs (one entry for the classic UI).
+    Returns RequestPayload which unpacks as (targets, pages, delay) or
+    allows accessing .filters (or indexing [3]).
     """
     data = request.get_json(silent=True) or request.form.to_dict() or {}
-    targets = _targets_from_data(data)
+    filters = data.get("filters") or {}
+    if not isinstance(filters, dict):
+        filters = {}
+
+    targets: list[tuple[str, str]] = []
+    has_make_or_model = bool(data.get("make") or data.get("model") or data.get("targets"))
+    if has_make_or_model:
+        targets = _targets_from_data(data)
+    elif not filters:
+        raise ValueError("Please select a Make/Model or configure search filters.")
 
     try:
         delay = max(float(data.get("delay") or pw.DEFAULT_DELAY), pw.MIN_DELAY)
@@ -571,7 +637,7 @@ def _parse_request_payload() -> tuple[list[tuple[str, str]], Optional[int], floa
             raise ValueError("'pages' must be at least 1.")
         pages = min(pages, pw.MAX_PAGES_CAP)
 
-    return targets, pages, delay
+    return RequestPayload(targets, pages, delay, filters)
 
 
 # --------------------------------------------------------------------------- #
@@ -669,29 +735,47 @@ def _estimate_response(estimates: list) -> dict:
 
 @app.post("/api/estimate")
 def api_estimate():
-    """Fetch page 1 per target and return the results count + a measured ETA."""
+    """Fetch page 1 per target/filter set and return the results count + a measured ETA."""
     try:
-        targets, pages, delay = _parse_request_payload()
+        req_p = _parse_request_payload()
+        targets, pages, delay, filters = req_p[0], req_p[1], req_p[2], req_p[3]
     except ValueError as exc:
         return api_error(str(exc))
 
     session = pw.PoliteSession(delay=delay)
     estimates = []
     try:
-        for make, model in targets:
-            url = pw.search_url(make, model)
+        if targets:
+            for make, model in targets:
+                url = pw.search_url(make, model, filters=filters)
+                result = session.get(url)
+                if result.status_code == 200:
+                    cache_first_page(make, model, result)  # reused by /api/scrape
+                estimates.append(
+                    pw.estimate_scrape(
+                        session=session,
+                        make=make,
+                        model=model,
+                        max_pages=pages,
+                        delay=delay,
+                        sample_size=5,
+                        first_page=result,
+                        filters=filters,
+                    )
+                )
+        else:
+            url = pw.search_url(filters=filters)
             result = session.get(url)
             if result.status_code == 200:
-                cache_first_page(make, model, result)  # reused by /api/scrape
+                cache_first_page("deal-scanner", "generic", result)
             estimates.append(
                 pw.estimate_scrape(
                     session=session,
-                    make=make,
-                    model=model,
                     max_pages=pages,
                     delay=delay,
                     sample_size=5,
                     first_page=result,
+                    filters=filters,
                 )
             )
     except pw.RobotsDisallowed as exc:
@@ -708,7 +792,8 @@ def api_estimate():
 def api_scrape():
     """Start a background scrape (only one job at a time - politeness first)."""
     try:
-        targets, pages, delay = _parse_request_payload()
+        req_p = _parse_request_payload()
+        targets, pages, delay, filters = req_p[0], req_p[1], req_p[2], req_p[3]
     except ValueError as exc:
         return api_error(str(exc))
 
@@ -736,13 +821,14 @@ def api_scrape():
 
     try:
         job = manager.create(
-            targets[0][0],
-            targets[0][1],
+            targets[0][0] if targets else "",
+            targets[0][1] if targets else "",
             pages,
             delay,
             pages_available if len(targets) == 1 else None,
             estimate,
             targets=targets,
+            filters=filters,
         )
     except ValueError as exc:
         return api_error(str(exc))

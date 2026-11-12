@@ -258,21 +258,98 @@
     state.estimate = null;
   }
 
+  function collectFilters() {
+    var filters = {};
+    var prMin = $("filter-pr-min") ? $("filter-pr-min").value.trim() : "";
+    var prMax = $("filter-pr-max") ? $("filter-pr-max").value.trim() : "";
+    var yrMin = $("filter-yr-min") ? $("filter-yr-min").value.trim() : "";
+    var yrMax = $("filter-yr-max") ? $("filter-yr-max").value.trim() : "";
+    var kmMin = $("filter-km-min") ? $("filter-km-min").value.trim() : "";
+    var kmMax = $("filter-km-max") ? $("filter-km-max").value.trim() : "";
+    var ccMin = $("filter-cc-min") ? $("filter-cc-min").value.trim() : "";
+    var ccMax = $("filter-cc-max") ? $("filter-cc-max").value.trim() : "";
+    var sellerType = $("filter-seller-type") ? $("filter-seller-type").value.trim() : "";
+    var color = $("filter-color") ? $("filter-color").value.trim() : "";
+    var excludeKw = $("filter-exclude-keywords") ? $("filter-exclude-keywords").value.trim() : "";
+
+    if (prMin) { filters.pr_min = parseInt(prMin, 10); }
+    if (prMax) { filters.pr_max = parseInt(prMax, 10); }
+    if (yrMin) { filters.yr_min = parseInt(yrMin, 10); }
+    if (yrMax) { filters.yr_max = parseInt(yrMax, 10); }
+    if (kmMin) { filters.km_min = parseInt(kmMin, 10); }
+    if (kmMax) { filters.km_max = parseInt(kmMax, 10); }
+    if (ccMin) { filters.cc_min = parseInt(ccMin, 10); }
+    if (ccMax) { filters.cc_max = parseInt(ccMax, 10); }
+    if (sellerType) { filters.seller_type = sellerType; }
+    if (color) { filters.color = color; }
+    if (excludeKw) {
+      filters.exclude_keywords = excludeKw.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+    }
+
+    // Multi-select cities
+    var cities = [];
+    document.querySelectorAll('input[name="filter-city"]:checked').forEach(function (cb) {
+      if (cb.value) { cities.push(cb.value); }
+    });
+    if (cities.length > 0) { filters.city = cities; }
+
+    // Multi-select body types
+    var bodies = [];
+    document.querySelectorAll('input[name="filter-body"]:checked').forEach(function (cb) {
+      if (cb.value) { bodies.push(cb.value); }
+    });
+    if (bodies.length > 0) { filters.body_type = bodies; }
+
+    var trans = [];
+    if ($("filter-trans-auto") && $("filter-trans-auto").checked) { trans.push("automatic"); }
+    if ($("filter-trans-manual") && $("filter-trans-manual").checked) { trans.push("manual"); }
+    if (trans.length > 0) { filters.transmission = trans; }
+
+    var fuels = [];
+    if ($("filter-fuel-petrol") && $("filter-fuel-petrol").checked) { fuels.push("petrol"); }
+    if ($("filter-fuel-diesel") && $("filter-fuel-diesel").checked) { fuels.push("diesel"); }
+    if ($("filter-fuel-hybrid") && $("filter-fuel-hybrid").checked) { fuels.push("hybrid"); }
+    if ($("filter-fuel-electric") && $("filter-fuel-electric").checked) { fuels.push("electric"); }
+    if (fuels.length > 0) { filters.fuel_type = fuels; }
+
+    return filters;
+  }
+
+  function clearCustomFilters() {
+    ["filter-pr-min", "filter-pr-max", "filter-yr-min", "filter-yr-max",
+     "filter-km-min", "filter-km-max", "filter-cc-min", "filter-cc-max",
+     "filter-color", "filter-exclude-keywords"].forEach(function (id) {
+      if ($(id)) { $(id).value = ""; }
+    });
+    if ($("filter-seller-type")) { $("filter-seller-type").value = ""; }
+    document.querySelectorAll('input[name="filter-city"], input[name="filter-body"]').forEach(function (cb) {
+      cb.checked = false;
+    });
+    ["filter-trans-auto", "filter-trans-manual", "filter-fuel-petrol",
+     "filter-fuel-diesel", "filter-fuel-hybrid", "filter-fuel-electric"].forEach(function (id) {
+      if ($(id)) { $(id).checked = false; }
+    });
+  }
+
   function buildBody() {
     var targetsList = [];
     if (state.targets.length > 0) {
-      // If user built a comparison list, use it
       targetsList = state.targets.map(function (t) {
         return { make: t.make, model: t.model };
       });
-      // If current dropdown has a car not yet added, and total is less than 4, could optionally include or just use tray
     } else {
       var selection = currentSelection();
-      if (!selection) {
-        showError("Please choose both a make and a model (or type their slugs).");
-        return null;
+      if (selection && selection.make && selection.model) {
+        targetsList = [{ make: selection.make, model: selection.model }];
       }
-      targetsList = [{ make: selection.make, model: selection.model }];
+    }
+
+    var filters = collectFilters();
+    var hasFilters = Object.keys(filters).length > 0;
+
+    if (targetsList.length === 0 && !hasFilters) {
+      showError("Please choose a car (make & model) or configure at least one custom search filter.");
+      return null;
     }
 
     var body = {
@@ -282,9 +359,13 @@
 
     if (targetsList.length > 1) {
       body.targets = targetsList;
-    } else {
+    } else if (targetsList.length === 1) {
       body.make = targetsList[0].make;
       body.model = targetsList[0].model;
+    }
+
+    if (hasFilters) {
+      body.filters = filters;
     }
     return body;
   }
@@ -1117,6 +1198,9 @@
     });
     $("btn-add-target").addEventListener("click", addCurrentTarget);
     $("btn-clear-targets").addEventListener("click", clearAllTargets);
+    if ($("btn-clear-filters")) {
+      $("btn-clear-filters").addEventListener("click", clearCustomFilters);
+    }
     $("target-tags").addEventListener("click", function (event) {
       var btn = event.target.closest("[data-remove-target]");
       if (btn) {
