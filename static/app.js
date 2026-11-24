@@ -646,27 +646,31 @@
       ? "-" : stats.price_min_lacs + " – " + stats.price_max_lacs + " lacs";
     var yearRange = stats.year_min ? stats.year_min + " – " + stats.year_max : "-";
     var cards = [
-      ["Listings", stats.count],
+      ["Cars found", stats.count],
       ["Price range", priceRange],
-      ["Median price", formatPkr(stats.price_median)],
-      ["Years", yearRange],
-      ["Median mileage", stats.mileage_median_km
+      ["Typical (median) price", formatPkr(stats.price_median)],
+      ["Model years", yearRange],
+      ["Typical mileage", stats.mileage_median_km
         ? Number(stats.mileage_median_km).toLocaleString("en-US") + " km" : "-"],
-      ["Featured ads", stats.featured_count],
+      ["Sponsored ads", stats.featured_count],
       ["Great deals", dealCounts["Great Deal"] || 0],
       ["Overpriced", dealCounts["Overpriced"] || 0],
-      ["FMV coverage", (stats.fmv_available_count || 0) + " / " + (stats.count || 0)],
+      ["Estimated Fair Value (FMV)", (stats.fmv_available_count || 0) + " / " + (stats.count || 0),
+        "Fair Market Value (FMV) estimates what a car of the same model, variant, and year normally sells for."],
       ["Duplicates removed", snapshot.duplicates_dropped],
-      ["Pages scraped", snapshot.pages_done + " / " + (snapshot.pages_total || 0)],
-      ["Manual corrections", manualEdits(payload)]
+      ["Pages scanned", snapshot.pages_done + " / " + (snapshot.pages_total || 0)],
+      ["Manual edits", manualEdits(payload)]
     ];
     var container = $("result-stats");
     container.innerHTML = "";
-    cards.forEach(function (pair) {
+    cards.forEach(function (item) {
       var box = document.createElement("div");
       box.className = "stat";
-      box.innerHTML = '<span class="stat-label">' + escapeHtml(pair[0]) +
-        '</span><span class="stat-value">' + escapeHtml(pair[1]) + "</span>";
+      var helpBtn = item[2]
+        ? ' <button type="button" class="help-btn" data-help="' + escapeHtml(item[2]) + '" aria-label="Explain ' + escapeHtml(item[0]) + '">?</button>'
+        : "";
+      box.innerHTML = '<span class="stat-label">' + escapeHtml(item[0]) + helpBtn +
+        '</span><span class="stat-value">' + escapeHtml(item[1]) + "</span>";
       container.appendChild(box);
     });
   }
@@ -1456,6 +1460,53 @@
         applyTheme(currentTheme() === "dark" ? "light" : "dark", true);
       });
     }
+
+    initHelpPopovers();
+  }
+
+  function initHelpPopovers() {
+    var pop = $("help-popover");
+    if (!pop) { return; }
+    var activeBtn = null;
+
+    function hidePop() {
+      pop.hidden = true;
+      activeBtn = null;
+    }
+
+    function showPop(btn) {
+      var text = btn.getAttribute("data-help");
+      if (!text) { return; }
+      pop.textContent = text;
+      pop.hidden = false;
+      activeBtn = btn;
+      var rect = btn.getBoundingClientRect();
+      var top = rect.bottom + 8;
+      var left = Math.min(rect.left, window.innerWidth - pop.offsetWidth - 12);
+      if (top + pop.offsetHeight > window.innerHeight - 12) {
+        top = Math.max(12, rect.top - pop.offsetHeight - 8);
+      }
+      pop.style.top = top + "px";
+      pop.style.left = Math.max(12, left) + "px";
+    }
+
+    document.addEventListener("click", function (event) {
+      var btn = event.target.closest(".help-btn");
+      if (btn) {
+        event.stopPropagation();
+        event.preventDefault();
+        if (activeBtn === btn && !pop.hidden) { hidePop(); }
+        else { showPop(btn); }
+        return;
+      }
+      if (!pop.hidden && !event.target.closest("#help-popover")) {
+        hidePop();
+      }
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && !pop.hidden) { hidePop(); }
+    });
   }
 
   initTheme();

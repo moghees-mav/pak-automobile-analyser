@@ -28,27 +28,47 @@
   <div class="topbar-brand">
     <h1>PakWheels Market Explorer</h1>
     <p class="subtitle">
-      Pick a make and model, see how long the scrape will take, then explore price vs. year.
+      Find underpriced cars, compare models, and see Fair Market Value across Pakistan.
     </p>
   </div>
   <div class="topbar-right">
-    <div class="badges">
-      <span class="badge badge-green" title="Every request is checked against pakwheels.com/robots.txt">
-        robots.txt guard on
-      </span>
-      <span class="badge" id="badge-delay" title="Minimum spacing between requests">
-        &ge; {{ min_delay }}s between requests
-      </span>
-      <span class="badge" id="badge-catalogue" title="Where the make/model list came from">
-        catalogue: {{ catalogue_source or 'not built yet' }}
-      </span>
-    </div>
     <button type="button" id="theme-toggle" class="btn btn-theme" aria-label="Toggle dark mode" title="Switch between Light and Dark theme">
       <span id="theme-icon" aria-hidden="true">🌙</span>
       <span id="theme-label">Dark</span>
     </button>
   </div>
 </header>
+
+<section class="quickstart-wrap" id="quickstart-wrap" aria-label="How it works">
+  <details class="quickstart" id="quickstart-details" open>
+    <summary class="quickstart-summary">
+      <span><strong>How it works</strong> &mdash; 3 quick steps to find great deals</span>
+    </summary>
+    <div class="quickstart-grid">
+      <div class="quickstart-step">
+        <span class="quickstart-num">1</span>
+        <div>
+          <strong>Pick a car or set a budget</strong>
+          <p>Choose a Make &amp; Model, or leave them blank and use filters to scan all cars in your price range.</p>
+        </div>
+      </div>
+      <div class="quickstart-step">
+        <span class="quickstart-num">2</span>
+        <div>
+          <strong>Scan PakWheels</strong>
+          <p>Click <strong>Check Time &amp; Ad Count</strong> (optional) or <strong>Scan PakWheels</strong> to collect live listings.</p>
+        </div>
+      </div>
+      <div class="quickstart-step">
+        <span class="quickstart-num">3</span>
+        <div>
+          <strong>Spot Great Deals</strong>
+          <p>Green dots below the trend line are priced below <strong>Fair Market Value</strong> &mdash; tap any row or dot to inspect.</p>
+        </div>
+      </div>
+    </div>
+  </details>
+</section>
 
 <div id="error-banner" class="banner banner-error" hidden></div>
 
@@ -58,11 +78,11 @@
 
     <label for="make">Make</label>
     <select id="make"></select>
-    <input id="make-custom" type="text" placeholder="or type a make slug, e.g. mg" hidden />
+    <input id="make-custom" type="text" placeholder="Or enter brand name from PakWheels URL (e.g. mg)" hidden />
 
     <label for="model">Model</label>
     <select id="model" disabled></select>
-    <input id="model-custom" type="text" placeholder="or type a model slug, e.g. hs" hidden />
+    <input id="model-custom" type="text" placeholder="Or enter model name from PakWheels URL (e.g. hs)" hidden />
 
     <div class="target-builder-actions">
       <button type="button" id="btn-add-target" class="btn btn-ghost" title="Add up to 4 models to compare">+ Compare another car</button>
@@ -75,12 +95,15 @@
       <div id="target-tags" class="target-tags"></div>
     </div>
 
-    <!-- Generic Search & Arbitrage Filter Matrix -->
+    <!-- Budget, City & Car Filters -->
     <details class="filter-matrix-details" id="filter-matrix-details">
       <summary class="filter-matrix-summary">
-        <span><strong>Custom Search & Arbitrage Filters</strong> <span class="muted">(Optional / Generic Search)</span></span>
+        <span><strong>Budget, City &amp; Car Filters</strong> <span class="muted">(Optional &mdash; search all cars or narrow your search)</span></span>
       </summary>
       <div class="filter-matrix-body">
+        <p class="hint" style="margin:0 0 4px;">
+          Tip: You can leave Make &amp; Model blank above and just set a budget, year, or city to scan all matching cars on PakWheels.
+        </p>
         <div class="row">
           <div class="field">
             <label for="filter-pr-min">Min Price (PKR)</label>
@@ -183,52 +206,58 @@
         </div>
 
         <div class="field">
-          <label for="filter-exclude-keywords">Exclude / Skip Keywords <span class="muted">(e.g. baleno, cultus, accidental)</span></label>
+          <label for="filter-exclude-keywords">Hide unwanted cars or words <span class="muted">(e.g. accidental, urgent, cultus)</span></label>
           <input id="filter-exclude-keywords" type="text" placeholder="Comma-separated models, trims, or words to skip" />
         </div>
 
         <div class="filter-actions">
-          <button type="button" id="btn-clear-filters" class="btn-link">Reset custom filters</button>
+          <button type="button" id="btn-clear-filters" class="btn-link">Reset filters</button>
         </div>
       </div>
     </details>
 
-    <div class="row">
-      <div class="field">
-        <label for="pages">Pages to scrape</label>
-        <input id="pages" type="number" min="1" max="{{ max_pages }}" value="{{ default_pages }}" />
-      </div>
-      <div class="field">
-        <label for="delay">Delay per request (s)</label>
-        <input id="delay" type="number" min="{{ min_delay }}" step="0.5" value="{{ default_delay }}" />
-      </div>
+    <div class="field">
+      <label for="pages">Pages to scan</label>
+      <input id="pages" type="number" min="1" max="{{ max_pages }}" value="{{ default_pages }}" />
     </div>
 
     <label class="check">
       <input id="all-pages" type="checkbox" />
-      Scrape every available page (capped at {{ max_pages }})
+      Scan every available page (capped at {{ max_pages }})
     </label>
 
     <p class="hint">
       One page holds about 25 listings, so {{ default_pages }} pages &asymp;
-      {{ default_pages * 25 }} cars. Each page costs one polite request.
+      {{ default_pages * 25 }} cars.
     </p>
 
+    <details class="advanced-settings">
+      <summary>Advanced speed &amp; catalogue settings</summary>
+      <div class="advanced-settings-body">
+        <div class="field">
+          <label for="delay">Request delay (seconds) <span class="muted">(Higher delay = gentler on PakWheels)</span></label>
+          <input id="delay" type="number" min="{{ min_delay }}" step="0.5" value="{{ default_delay }}" />
+        </div>
+        <div class="actions" style="margin-top:10px;">
+          <button type="button" id="btn-refresh-catalogue" class="btn btn-ghost btn-mini" title="Re-read the make/model list">
+            Refresh car list
+          </button>
+        </div>
+      </div>
+    </details>
+
     <div class="actions">
-      <button id="btn-estimate" class="btn">Estimate time</button>
-      <button id="btn-start" class="btn btn-primary" disabled>Start scrape</button>
+      <button id="btn-estimate" class="btn">Check Time &amp; Ad Count</button>
+      <button id="btn-start" class="btn btn-primary" disabled>Scan PakWheels</button>
       <button id="btn-cancel" class="btn btn-danger" disabled>Cancel</button>
-      <button id="btn-refresh-catalogue" class="btn btn-ghost" title="Re-read the make/model list">
-        Refresh catalogue
-      </button>
     </div>
   </section>
 
   <section class="card" id="estimate-panel">
-    <h2><span class="step-num">2</span> Estimated duration</h2>
+    <h2><span class="step-num">2</span> Time &amp; ad count</h2>
     <p class="muted" id="estimate-placeholder">
-      Press <strong>Estimate time</strong> to fetch the first results page once and measure
-      exactly how many ads exist and how long the scrape will take.
+      Press <strong>Check Time &amp; Ad Count</strong> to peek at the first page and see
+      how many ads match and how long scanning will take.
     </p>
     <div id="estimate-body" hidden>
       <div class="stat-grid">
@@ -265,12 +294,23 @@
   </section>
 
   <section class="card wide" id="results-panel" hidden>
-    <h2><span class="step-num">4</span> Results</h2>
+    <h2><span class="step-num">4</span> Results &amp; Deals</h2>
     <div class="stat-grid" id="result-stats"></div>
 
+    <div class="deal-legend-card" aria-label="Deal rating guide">
+      <span class="deal-legend-item"><span class="deal-badge deal-great">Great Deal</span> Priced well below similar cars of the same model &amp; year</span>
+      <span class="deal-legend-item"><span class="deal-badge deal-good">Good Deal</span> Fairly discounted vs. market average</span>
+      <span class="deal-legend-item"><span class="deal-badge deal-fair">Fair Price</span> Around normal market price</span>
+      <span class="deal-legend-item"><span class="deal-badge deal-overpriced">Overpriced</span> Listed above typical market price</span>
+      <button type="button" class="help-btn" data-help="Fair Market Value (FMV) estimates what a car of the same model, variant, and year normally sells for. Discount % and Margin show how far below FMV an ad is priced. Badges like High Margin (>=15% off), Urgent Sale Candidate (statistically far below average), and Location Arbitrage (>=8% off with a known city) highlight standout bargains." aria-label="Explain Deal Ratings and Fair Market Value">?</button>
+    </div>
+
     <div class="view-tabs" role="tablist">
-      <button type="button" id="tab-scatter" class="view-tab active" role="tab" aria-selected="true">Scatter &amp; Trends</button>
-      <button type="button" id="tab-boxplots" class="view-tab" role="tab" aria-selected="false">Regional Price Distribution (City-Wise Boxplots)</button>
+      <button type="button" id="tab-scatter" class="view-tab active" role="tab" aria-selected="true">Price vs. Year Chart</button>
+      <button type="button" id="tab-boxplots" class="view-tab" role="tab" aria-selected="false">
+        City Price Comparison
+        <span class="help-btn" role="button" tabindex="0" data-help="City-Wise Boxplots compare typical prices (median and spread) across Islamabad, Lahore, Karachi, and Rawalpindi so you can spot which city is cheaper." aria-label="Explain City Price Comparison">?</span>
+      </button>
     </div>
 
     <div class="chart-toolbar" id="scatter-toolbar">
@@ -299,9 +339,15 @@
           <option value="discount_tier">Discount Depth</option>
         </select>
       </label>
-      <label class="check"><input id="toggle-trend" type="checkbox" checked /> Trend line</label>
-      <label class="check"><input id="toggle-log-y" type="checkbox" /> Log scale (Y)</label>
-      <label class="check"><input id="toggle-featured" type="checkbox" checked /> Include featured ads</label>
+      <label class="check">
+        <input id="toggle-trend" type="checkbox" checked /> Trend line
+        <button type="button" class="help-btn" data-help="The dashed Trend Line shows the average price by year. Dots well below this line are usually better bargains." aria-label="Explain Trend line">?</button>
+      </label>
+      <label class="check">
+        <input id="toggle-log-y" type="checkbox" /> Compress high prices (Log scale)
+        <button type="button" class="help-btn" data-help="Log scale compresses very expensive outliers so cheaper and mid-range cars are easier to see." aria-label="Explain Log scale">?</button>
+      </label>
+      <label class="check"><input id="toggle-featured" type="checkbox" checked /> Show sponsored / featured ads</label>
     </div>
 
     <div class="chart-toolbar" id="box-toolbar" hidden>
@@ -312,7 +358,7 @@
         </select>
       </label>
       <label class="check"><input id="box-toggle-points" type="checkbox" checked /> Show data points</label>
-      <label class="check"><input id="box-toggle-featured" type="checkbox" checked /> Include featured ads</label>
+      <label class="check"><input id="box-toggle-featured" type="checkbox" checked /> Show sponsored / featured ads</label>
     </div>
 
     <div id="chart" class="chart"></div>
@@ -374,11 +420,23 @@
 </main>
 
 <footer class="footer">
+  <div class="badges" style="margin-bottom:8px;">
+    <span class="badge badge-green" title="Every request is checked against pakwheels.com/robots.txt">
+      robots.txt guard on
+    </span>
+    <span class="badge" id="badge-delay" title="Minimum spacing between requests">
+      &ge; {{ min_delay }}s between requests
+    </span>
+    <span class="badge" id="badge-catalogue" title="Where the make/model list came from">
+      catalogue: {{ catalogue_source or 'not built yet' }}
+    </span>
+  </div>
   <span>
-    Politeness: &ge;{{ min_delay }}s between requests, retry/backoff on 429/503, one job at a time.
-    Disallowed parameters (<code>sortby</code>, <code>nf</code>) and private paths are blocked in code.
+    Polite scraper: &ge;{{ min_delay }}s between requests, automatic retry on 429/503, one scan at a time.
   </span>
 </footer>
+
+<div id="help-popover" class="help-popover" role="tooltip" hidden></div>
 
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>

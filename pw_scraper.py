@@ -2945,43 +2945,80 @@ SCATTER_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>{title}</title>
+<script>
+  (function() {{
+    try {{
+      var saved = localStorage.getItem("pw_theme");
+      var dark = saved ? saved === "dark" : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    }} catch (e) {{}}
+  }})();
+</script>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
-  body {{ font-family: Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 24px; color: #10233f; }}
-  h1 {{ font-size: 20px; margin: 0 0 4px; }}
-  p.meta {{ color: #5a6b85; margin: 0 0 16px; font-size: 13px; }}
-  #chart {{ width: 100%; height: 640px; }}
-  .deal-keys {{ display: flex; flex-wrap: wrap; gap: 12px; margin: -8px 0 12px; font-size: 12px; color: #5a6b85; }}
+  :root {{
+    --bg: #f1f5f9; --card: #ffffff; --sub: #f8fafc; --ink: #0f172a; --muted: #475569;
+    --line: #cbd5e1; --line-soft: #e2e8f0; --accent: #2563eb; --grid: #e2e8f0;
+  }}
+  [data-theme="dark"] {{
+    --bg: #0b1120; --card: #111827; --sub: #1e293b; --ink: #f8fafc; --muted: #94a3b8;
+    --line: #334155; --line-soft: #1e293b; --accent: #60a5fa; --grid: #1e293b;
+  }}
+  * {{ box-sizing: border-box; }}
+  body {{ font-family: "Inter", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; margin: 20px 24px; background: var(--bg); color: var(--ink); font-size: 16px; line-height: 1.5; }}
+  .top-row {{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }}
+  h1 {{ font-size: clamp(22px, 3vw, 26px); font-weight: 800; margin: 0 0 4px; }}
+  p.meta {{ color: var(--muted); margin: 0; font-size: 14px; }}
+  .theme-btn {{ padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 14px; font-weight: 600; cursor: pointer; min-height: 40px; }}
+  .card {{ background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 20px; }}
+  #chart {{ width: 100%; height: 560px; }}
+  .deal-keys {{ display: flex; flex-wrap: wrap; gap: 10px 16px; margin: 0 0 12px; font-size: 13.5px; color: var(--muted); }}
   .deal-key {{ display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }}
-  .matrix-section {{ margin-top: 28px; }}
-  .matrix-header {{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }}
-  .matrix-header h2 {{ font-size: 17px; margin: 0; }}
-  .matrix-controls {{ display: flex; align-items: center; gap: 8px; font-size: 13px; color: #5a6b85; }}
-  .matrix-controls select {{ padding: 6px 10px; border: 1px solid #d5dce6; border-radius: 6px; font-size: 13px; color: #10233f; background: #fff; }}
-  .matrix-wrap {{ overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; }}
-  table.deal-matrix {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
-  table.deal-matrix th {{ background: #f8fafc; text-align: left; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 600; white-space: nowrap; }}
-  table.deal-matrix td {{ padding: 9px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }}
-  table.deal-matrix tr:hover {{ background: #f8fafc; }}
-  .deal-badge {{ display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; }}
+  .matrix-section {{ margin-top: 8px; }}
+  .matrix-header {{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }}
+  .matrix-header h2 {{ font-size: 19px; font-weight: 700; margin: 0; }}
+  .matrix-help {{ color: var(--muted); font-size: 13.5px; margin: 0 0 12px; }}
+  .matrix-controls {{ display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }}
+  .matrix-controls select {{ padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 14.5px; color: var(--ink); background: var(--card); min-height: 40px; }}
+  .matrix-wrap {{ overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }}
+  table.deal-matrix {{ width: 100%; border-collapse: collapse; font-size: 14px; }}
+  table.deal-matrix th {{ background: var(--sub); text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); color: var(--muted); font-weight: 700; white-space: nowrap; font-size: 13px; }}
+  table.deal-matrix td {{ padding: 10px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }}
+  table.deal-matrix tr:hover {{ background: var(--sub); }}
+  .deal-badge {{ display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap; }}
   .num {{ text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }}
-  a.listing-link {{ color: #1d4ed8; text-decoration: none; }}
+  a.listing-link {{ color: var(--accent); font-weight: 600; text-decoration: none; }}
   a.listing-link:hover {{ text-decoration: underline; }}
+  @media (max-width: 1024px) {{ #chart {{ height: 440px; }} }}
+  @media (max-width: 640px) {{
+    body {{ margin: 12px; }}
+    .card {{ padding: 14px; }}
+    #chart {{ height: 360px; }}
+    .matrix-controls select {{ font-size: 16px; min-height: 44px; }}
+  }}
 </style>
 </head>
 <body>
-<h1>{title}</h1>
-<p class="meta">{subtitle}</p>
-<div class="deal-keys">
-  <span><span class="deal-key" style="background:#1a9850"></span>Great Deal</span>
-  <span><span class="deal-key" style="background:#66bd63"></span>Good Deal</span>
-  <span><span class="deal-key" style="background:#4c78a8"></span>Fair Price</span>
-  <span><span class="deal-key" style="background:#d73027"></span>Overpriced</span>
-  <span><span class="deal-key" style="background:#9aa5b1"></span>Unknown</span>
+<div class="top-row">
+  <div>
+    <h1>{title}</h1>
+    <p class="meta">{subtitle}</p>
+  </div>
+  <button type="button" id="themeBtn" class="theme-btn">Theme</button>
 </div>
-<div id="chart"></div>
-<section class="matrix-section" aria-label="Deal Rank and Flipping Matrix">
+<div class="card">
+  <div class="deal-keys">
+    <span><span class="deal-key" style="background:#1a9850"></span>Great Deal (well below FMV)</span>
+    <span><span class="deal-key" style="background:#66bd63"></span>Good Deal</span>
+    <span><span class="deal-key" style="background:#4c78a8"></span>Fair Price</span>
+    <span><span class="deal-key" style="background:#d73027"></span>Overpriced</span>
+    <span><span class="deal-key" style="background:#9aa5b1"></span>Unknown</span>
+  </div>
+  <div id="chart"></div>
+</div>
+<section class="card matrix-section" aria-label="Deal Rank and Flipping Matrix">
   <div class="matrix-header">
     <h2>Deal Rank &amp; Flipping Matrix</h2>
     <div class="matrix-controls">
@@ -2993,6 +3030,9 @@ SCATTER_HTML_TEMPLATE = """<!DOCTYPE html>
       </select>
     </div>
   </div>
+  <p class="matrix-help">
+    Fair Market Value (FMV) is the typical price for the same model and year. Margin and Discount show how far below FMV each car is priced.
+  </p>
   <div class="matrix-wrap">
     <table class="deal-matrix">
       <thead>
@@ -3083,14 +3123,48 @@ if (trend) {{
   }});
 }}
 
+function getChartColors() {{
+  const cs = getComputedStyle(document.documentElement);
+  return {{
+    ink: (cs.getPropertyValue("--ink") || "#0f172a").trim(),
+    grid: (cs.getPropertyValue("--grid") || "#e2e8f0").trim()
+  }};
+}}
+
+const c0 = getChartColors();
+const isMob = window.innerWidth < 640;
 Plotly.newPlot("chart", traces, {{
-  title: {{ text: "Price (lacs PKR) vs Model Year", font: {{ size: 15 }} }},
-  xaxis: {{ title: "Model year", dtick: 1, tickangle: -45 }},
-  yaxis: {{ title: "Price (lacs PKR)" }},
-  legend: {{ orientation: "h", y: -0.2 }},
-  margin: {{ t: 48, r: 24, b: 90, l: 70 }},
+  font: {{ color: c0.ink, size: isMob ? 11 : 12 }},
+  title: {{ text: "Price (lacs PKR) vs Model Year", font: {{ size: isMob ? 13 : 15, color: c0.ink }} }},
+  xaxis: {{ title: "Model year", dtick: 1, tickangle: -45, gridcolor: c0.grid, zeroline: false }},
+  yaxis: {{ title: "Price (lacs PKR)", gridcolor: c0.grid, zeroline: false }},
+  legend: {{ orientation: "h", y: isMob ? -0.3 : -0.2 }},
+  margin: isMob ? {{ t: 36, r: 10, b: 70, l: 54 }} : {{ t: 48, r: 24, b: 90, l: 70 }},
+  paper_bgcolor: "rgba(0,0,0,0)",
+  plot_bgcolor: "rgba(0,0,0,0)",
   hovermode: "closest"
 }}, {{ responsive: true, displaylogo: false }});
+
+const themeBtn = document.getElementById("themeBtn");
+function syncThemeBtn() {{
+  if (!themeBtn) return;
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  themeBtn.textContent = dark ? "☀️ Light" : "🌙 Dark";
+}}
+syncThemeBtn();
+if (themeBtn) {{
+  themeBtn.addEventListener("click", () => {{
+    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try {{ localStorage.setItem("pw_theme", next); }} catch (e) {{}}
+    syncThemeBtn();
+    const c = getChartColors();
+    Plotly.relayout("chart", {{
+      "font.color": c.ink, "title.font.color": c.ink,
+      "xaxis.gridcolor": c.grid, "yaxis.gridcolor": c.grid
+    }});
+  }});
+}}
 
 function escapeHtml(text) {{
   return String(text || "").replace(/[&<>"']/g, ch => ({{

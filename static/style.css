@@ -902,3 +902,143 @@ label.check.inline {
 @media (max-width: 640px) {
   .chart { height: 380px; }
 }
+
+/* Quick-start How It Works guide */
+.quickstart-wrap {
+  padding: 14px 24px 0;
+}
+
+.quickstart {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.quickstart-summary {
+  padding: 12px 18px;
+  margin-top: 0;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--surface-subtle);
+}
+
+.quickstart-grid {
+  display: grid;
+  gap: 14px;
+  padding: 14px 18px 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  border-top: 1px solid var(--line-soft);
+}
+
+.quickstart-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.quickstart-step p {
+  margin: 3px 0 0;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.quickstart-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Advanced settings toggle */
+.advanced-settings {
+  margin-top: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: var(--surface-subtle);
+}
+
+.advanced-settings summary {
+  margin-top: 0;
+  font-size: 13.5px;
+}
+
+.advanced-settings-body {
+  margin-top: 10px;
+}
+
+/* Deal rating legend strip */
+.deal-legend-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  margin-top: 14px;
+  padding: 11px 14px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.deal-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Inline ? help buttons & popover */
+.help-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-subtle);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.help-btn:hover,
+.help-btn:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+  background: var(--accent-soft);
+  outline: none;
+}
+
+.help-popover {
+  position: fixed;
+  z-index: 999;
+  max-width: min(320px, 90vw);
+  padding: 10px 13px;
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-modal);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .quickstart-wrap { padding: 12px 12px 0; }
+}
