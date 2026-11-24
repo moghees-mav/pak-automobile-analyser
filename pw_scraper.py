@@ -2909,6 +2909,9 @@ def save_run(df: pd.DataFrame, meta: dict, run_dir: Path) -> dict:
     meta_path = run_dir / "meta.json"
 
     export_df = df.copy() if df is not None else pd.DataFrame(columns=LISTING_COLUMNS)
+    required_arbitrage_cols = {"fmv", "pkr_below_fmv", "pct_below_fmv", "deal_rating"}
+    if not required_arbitrage_cols.issubset(export_df.columns):
+        export_df = calculate_fmv_and_deal_scores(export_df)
     if "make_model" not in export_df.columns:
         if "make" in export_df.columns and "model" in export_df.columns:
             export_df["make_model"] = [
@@ -2951,6 +2954,20 @@ SCATTER_HTML_TEMPLATE = """<!DOCTYPE html>
   #chart {{ width: 100%; height: 640px; }}
   .deal-keys {{ display: flex; flex-wrap: wrap; gap: 12px; margin: -8px 0 12px; font-size: 12px; color: #5a6b85; }}
   .deal-key {{ display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }}
+  .matrix-section {{ margin-top: 28px; }}
+  .matrix-header {{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }}
+  .matrix-header h2 {{ font-size: 17px; margin: 0; }}
+  .matrix-controls {{ display: flex; align-items: center; gap: 8px; font-size: 13px; color: #5a6b85; }}
+  .matrix-controls select {{ padding: 6px 10px; border: 1px solid #d5dce6; border-radius: 6px; font-size: 13px; color: #10233f; background: #fff; }}
+  .matrix-wrap {{ overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; }}
+  table.deal-matrix {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
+  table.deal-matrix th {{ background: #f8fafc; text-align: left; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 600; white-space: nowrap; }}
+  table.deal-matrix td {{ padding: 9px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }}
+  table.deal-matrix tr:hover {{ background: #f8fafc; }}
+  .deal-badge {{ display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; }}
+  .num {{ text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }}
+  a.listing-link {{ color: #1d4ed8; text-decoration: none; }}
+  a.listing-link:hover {{ text-decoration: underline; }}
 </style>
 </head>
 <body>
@@ -2964,6 +2981,37 @@ SCATTER_HTML_TEMPLATE = """<!DOCTYPE html>
   <span><span class="deal-key" style="background:#9aa5b1"></span>Unknown</span>
 </div>
 <div id="chart"></div>
+<section class="matrix-section" aria-label="Deal Rank and Flipping Matrix">
+  <div class="matrix-header">
+    <h2>Deal Rank &amp; Flipping Matrix</h2>
+    <div class="matrix-controls">
+      <label for="matrixSort">Sort by:</label>
+      <select id="matrixSort">
+        <option value="margin">Highest Margin First</option>
+        <option value="discount">Greatest Discount %</option>
+        <option value="price">Lowest Price First</option>
+      </select>
+    </div>
+  </div>
+  <div class="matrix-wrap">
+    <table class="deal-matrix">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Listing</th>
+          <th>Year</th>
+          <th>City</th>
+          <th class="num">Price (lacs)</th>
+          <th class="num">FMV (lacs)</th>
+          <th class="num">Margin (PKR)</th>
+          <th class="num">Discount</th>
+          <th>Deal Rating</th>
+        </tr>
+      </thead>
+      <tbody id="matrixBody"></tbody>
+    </table>
+  </div>
+</section>
 <script>
 const PAYLOAD = {payload_json};
 
@@ -3043,6 +3091,72 @@ Plotly.newPlot("chart", traces, {{
   margin: {{ t: 48, r: 24, b: 90, l: 70 }},
   hovermode: "closest"
 }}, {{ responsive: true, displaylogo: false }});
+
+function escapeHtml(text) {{
+  return String(text || "").replace(/[&<>"']/g, ch => ({{
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
+  }})[ch]);
+}}
+
+function numOrNull(v) {{
+  return (typeof v === "number" && Number.isFinite(v)) ? v : null;
+}}
+
+function fmtPkr(v) {{
+  const n = numOrNull(v);
+  if (n === null) return "n/a";
+  const sign = n < 0 ? "-" : "";
+  return sign + "PKR " + Math.abs(Math.round(n)).toLocaleString("en-US");
+}}
+
+function fmtPct(v) {{
+  const n = numOrNull(v);
+  return n === null ? "n/a" : n.toFixed(1) + "%";
+}}
+
+function renderMatrix(sortMode) {{
+  const tbody = document.getElementById("matrixBody");
+  if (!tbody) return;
+  const points = (PAYLOAD.points || []).slice();
+  points.sort((a, b) => {{
+    if (sortMode === "discount") {{
+      return (numOrNull(b.pct_below_fmv) ?? -Infinity) - (numOrNull(a.pct_below_fmv) ?? -Infinity);
+    }}
+    if (sortMode === "price") {{
+      return (numOrNull(a.price_pkr) ?? Infinity) - (numOrNull(b.price_pkr) ?? Infinity);
+    }}
+    return (numOrNull(b.pkr_below_fmv) ?? -Infinity) - (numOrNull(a.pkr_below_fmv) ?? -Infinity);
+  }});
+  tbody.innerHTML = points.map((p, idx) => {{
+    const title = escapeHtml(p.title || p.make_model || "Listing");
+    const link = p.url
+      ? `<a class="listing-link" href="${{escapeHtml(p.url)}}" target="_blank" rel="noopener">${{title}}</a>`
+      : title;
+    const rating = p.deal_rating || "Unknown";
+    const color = dealColor(rating);
+    const fmvLacs = numOrNull(p.expected_price_lacs) !== null
+      ? p.expected_price_lacs.toFixed(2)
+      : (numOrNull(p.fmv) !== null ? (p.fmv / 100000).toFixed(2) : "n/a");
+    const priceLacs = numOrNull(p.price_lacs) !== null ? p.price_lacs.toFixed(2) : "n/a";
+    return `<tr>
+      <td>#${{idx + 1}}</td>
+      <td>${{link}}</td>
+      <td>${{escapeHtml(p.year ?? "n/a")}}</td>
+      <td>${{escapeHtml(p.location || "n/a")}}</td>
+      <td class="num">${{priceLacs}}</td>
+      <td class="num">${{fmvLacs}}</td>
+      <td class="num">${{fmtPkr(p.pkr_below_fmv)}}</td>
+      <td class="num">${{fmtPct(p.pct_below_fmv)}}</td>
+      <td><span class="deal-badge" style="background:${{color}}">${{escapeHtml(rating)}}</span></td>
+    </tr>`;
+  }}).join("");
+}}
+
+const matrixSort = document.getElementById("matrixSort");
+if (matrixSort) {{
+  matrixSort.addEventListener("change", () => renderMatrix(matrixSort.value));
+}}
+renderMatrix("margin");
 </script>
 </body>
 </html>

@@ -1152,6 +1152,37 @@ class Task43ArbitrageMatrixTests(unittest.TestCase):
         self.assertIn("High Margin", bargain["arbitrage_badges"])
         self.assertIn("Location Arbitrage Potential", bargain["arbitrage_badges"])
 
+    def test_save_run_includes_arbitrage_fields_in_csv_and_json(self):
+        import tempfile
+        rows = [
+            _listing_row(listing_id="1", make="Toyota", model="Corolla", year=2019, price_pkr=3_400_000),
+            _listing_row(listing_id="2", make="Toyota", model="Corolla", year=2019, price_pkr=3_500_000),
+            _listing_row(listing_id="3", make="Toyota", model="Corolla", year=2019, price_pkr=3_600_000),
+            _listing_row(listing_id="4", make="Toyota", model="Corolla", year=2019, price_pkr=2_400_000),
+        ]
+        df = _frame(rows)
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = pw.save_run(df, {}, Path(tmp))
+            csv_text = Path(paths["csv"]).read_text(encoding="utf-8-sig")
+            for col in ("fmv", "pkr_below_fmv", "pct_below_fmv", "deal_rating"):
+                self.assertIn(col, csv_text.splitlines()[0])
+            records = json.loads(Path(paths["json"]).read_text(encoding="utf-8"))
+            self.assertEqual(len(records), 4)
+            for col in ("fmv", "pkr_below_fmv", "pct_below_fmv", "deal_rating"):
+                self.assertIn(col, records[0])
+
+    def test_render_scatter_html_includes_deal_rank_matrix(self):
+        rows = [
+            _listing_row(listing_id="1", make="Toyota", model="Corolla", year=2019, price_pkr=3_500_000),
+            _listing_row(listing_id="2", make="Toyota", model="Corolla", year=2019, price_pkr=2_500_000),
+        ]
+        payload = pw.build_scatter_payload(_frame(rows), make="toyota", model="corolla")
+        html = pw.render_scatter_html(payload, "Test Report")
+        self.assertIn("Deal Rank &amp; Flipping Matrix", html)
+        self.assertIn('id="matrixSort"', html)
+        self.assertIn('id="matrixBody"', html)
+        self.assertIn("renderMatrix", html)
+
 
 if __name__ == "__main__":
     unittest.main()
