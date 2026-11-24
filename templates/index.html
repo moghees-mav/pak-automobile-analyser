@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PakWheels Market Explorer</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("pw_theme");
+        var dark = saved ? saved === "dark"
+          : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+      } catch (e) {}
+    })();
+  </script>
   <!-- Plotly.js: local copy when present, CDN fallback otherwise -->
   <script src="{{ url_for('static', filename='vendor/plotly.min.js') }}"></script>
   <script>
@@ -15,22 +25,28 @@
 </head>
 <body>
 <header class="topbar">
-  <div>
+  <div class="topbar-brand">
     <h1>PakWheels Market Explorer</h1>
     <p class="subtitle">
       Pick a make and model, see how long the scrape will take, then explore price vs. year.
     </p>
   </div>
-  <div class="badges">
-    <span class="badge badge-green" title="Every request is checked against pakwheels.com/robots.txt">
-      robots.txt guard on
-    </span>
-    <span class="badge" id="badge-delay" title="Minimum spacing between requests">
-      &ge; {{ min_delay }}s between requests
-    </span>
-    <span class="badge" id="badge-catalogue" title="Where the make/model list came from">
-      catalogue: {{ catalogue_source or 'not built yet' }}
-    </span>
+  <div class="topbar-right">
+    <div class="badges">
+      <span class="badge badge-green" title="Every request is checked against pakwheels.com/robots.txt">
+        robots.txt guard on
+      </span>
+      <span class="badge" id="badge-delay" title="Minimum spacing between requests">
+        &ge; {{ min_delay }}s between requests
+      </span>
+      <span class="badge" id="badge-catalogue" title="Where the make/model list came from">
+        catalogue: {{ catalogue_source or 'not built yet' }}
+      </span>
+    </div>
+    <button type="button" id="theme-toggle" class="btn btn-theme" aria-label="Toggle dark mode" title="Switch between Light and Dark theme">
+      <span id="theme-icon" aria-hidden="true">🌙</span>
+      <span id="theme-label">Dark</span>
+    </button>
   </div>
 </header>
 
@@ -38,7 +54,7 @@
 
 <main class="layout">
   <section class="card">
-    <h2>1. Choose a car</h2>
+    <h2><span class="step-num">1</span> Choose a car</h2>
 
     <label for="make">Make</label>
     <select id="make"></select>
@@ -209,7 +225,7 @@
   </section>
 
   <section class="card" id="estimate-panel">
-    <h2>2. Estimated duration</h2>
+    <h2><span class="step-num">2</span> Estimated duration</h2>
     <p class="muted" id="estimate-placeholder">
       Press <strong>Estimate time</strong> to fetch the first results page once and measure
       exactly how many ads exist and how long the scrape will take.
@@ -233,7 +249,7 @@
   </section>
 
   <section class="card" id="progress-panel">
-    <h2>3. Progress</h2>
+    <h2><span class="step-num">3</span> Progress</h2>
     <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
     <div class="progress-stats">
       <span id="prog-state" class="pill">idle</span>
@@ -249,7 +265,7 @@
   </section>
 
   <section class="card wide" id="results-panel" hidden>
-    <h2>4. Results</h2>
+    <h2><span class="step-num">4</span> Results</h2>
     <div class="stat-grid" id="result-stats"></div>
 
     <div class="view-tabs" role="tablist">

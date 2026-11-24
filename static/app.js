@@ -74,6 +74,81 @@
 
   function $(id) { return document.getElementById(id); }
 
+  // ------------------------------------------------------------------- theme
+
+  var THEME_STORAGE_KEY = "pw_theme";
+
+  function currentTheme() {
+    return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  }
+
+  function getThemeTokens() {
+    var cs = getComputedStyle(document.documentElement);
+    function tok(name, fallback) {
+      var val = cs.getPropertyValue(name);
+      return val ? val.trim() : fallback;
+    }
+    var isDark = currentTheme() === "dark";
+    return {
+      ink: tok("--ink", isDark ? "#f8fafc" : "#0f172a"),
+      muted: tok("--muted", isDark ? "#94a3b8" : "#475569"),
+      card: tok("--card", isDark ? "#111827" : "#ffffff"),
+      grid: tok("--chart-grid", isDark ? "#1e293b" : "#e2e8f0"),
+      hoverBg: tok("--hover-bg", isDark ? "#1e293b" : "#ffffff"),
+      hoverBorder: tok("--hover-border", isDark ? "#475569" : "#cbd5e1")
+    };
+  }
+
+  function syncThemeButton(theme) {
+    var btn = $("theme-toggle");
+    var icon = $("theme-icon");
+    var label = $("theme-label");
+    if (!btn) { return; }
+    var isDark = theme === "dark";
+    if (icon) { icon.textContent = isDark ? "☀️" : "🌙"; }
+    if (label) { label.textContent = isDark ? "Light" : "Dark"; }
+    btn.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
+  }
+
+  function applyTheme(theme, persist) {
+    var next = theme === "dark" ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", next);
+    syncThemeButton(next);
+    if (persist) {
+      try { localStorage.setItem(THEME_STORAGE_KEY, next); } catch (e) {}
+    }
+    var chart = $("chart");
+    if (window.Plotly && chart && chart.data && chart.data.length) {
+      var tokens = getThemeTokens();
+      Plotly.relayout(chart, {
+        "font.color": tokens.ink,
+        "xaxis.gridcolor": tokens.grid,
+        "yaxis.gridcolor": tokens.grid,
+        "hoverlabel.bgcolor": tokens.hoverBg,
+        "hoverlabel.bordercolor": tokens.hoverBorder,
+        "hoverlabel.font.color": tokens.ink
+      });
+      if (state.payload) { drawChart(); }
+    }
+  }
+
+  function initTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem(THEME_STORAGE_KEY); } catch (e) {}
+    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+    var initial = saved || (mql && mql.matches ? "dark" : "light");
+    applyTheme(initial, false);
+    if (mql) {
+      var onMediaChange = function (event) {
+        var manual = null;
+        try { manual = localStorage.getItem(THEME_STORAGE_KEY); } catch (e) {}
+        if (!manual) { applyTheme(event.matches ? "dark" : "light", false); }
+      };
+      if (mql.addEventListener) { mql.addEventListener("change", onMediaChange); }
+      else if (mql.addListener) { mql.addListener(onMediaChange); }
+    }
+  }
+
   function showError(message) {
     var banner = $("error-banner");
     banner.textContent = message;
@@ -992,6 +1067,9 @@
       modelSymbolMap[m] = MODEL_SYMBOLS[i % MODEL_SYMBOLS.length];
     });
 
+    var tokens = getThemeTokens();
+    var isMobile = window.innerWidth < 640;
+
     entries.forEach(function (entry, idx) {
       var key = entry[0];
       var items = entry[1];
@@ -1001,7 +1079,7 @@
         size: (options.color === "deal_rating" || isDiscountColor) ? 13 : 12,
         opacity: 0.85,
         color: color,
-        line: { width: 1, color: "#ffffff" }
+        line: { width: 1, color: tokens.card }
       };
       if (hasMixedModels) {
         marker.symbol = items.map(function (point) {
@@ -1078,27 +1156,34 @@
     }
 
     var layout = {
-      margin: { t: 24, r: 16, b: 70, l: 75 },
+      font: { color: tokens.ink, size: isMobile ? 11 : 12 },
+      margin: isMobile ? { t: 18, r: 10, b: 64, l: 54 } : { t: 24, r: 16, b: 70, l: 75 },
       xaxis: {
         title: axisLabel(options.x),
         dtick: options.x === "year" ? 1 : undefined,
         tickangle: -45,
-        gridcolor: "#eef2f8",
+        gridcolor: tokens.grid,
         zeroline: false
       },
       yaxis: {
         title: axisLabel(options.y),
         type: options.logY ? "log" : "linear",
-        gridcolor: "#eef2f8",
+        gridcolor: tokens.grid,
         zeroline: false
       },
       legend: {
         orientation: "h",
-        y: -0.25,
+        y: isMobile ? -0.32 : -0.25,
+        font: { size: isMobile ? 10 : 12 },
         itemclick: "toggle",
         itemdoubleclick: "toggleothers"
       },
       hovermode: "closest",
+      hoverlabel: {
+        bgcolor: tokens.hoverBg,
+        bordercolor: tokens.hoverBorder,
+        font: { color: tokens.ink }
+      },
       paper_bgcolor: "rgba(0,0,0,0)",
       plot_bgcolor: "rgba(0,0,0,0)"
     };
@@ -1228,21 +1313,34 @@
       });
     }
 
+    var tokens = getThemeTokens();
+    var isMobile = window.innerWidth < 640;
     var headline = (payload.meta && payload.meta.make_model) ? payload.meta.make_model + " - " : "";
     var layout = {
-      title: { text: headline + "Regional Price Distribution (Top Cities)", font: { size: 14 } },
-      margin: { t: 40, r: 16, b: 60, l: 75 },
+      font: { color: tokens.ink, size: isMobile ? 11 : 12 },
+      title: { text: headline + "Regional Price Distribution (Top Cities)", font: { size: isMobile ? 13 : 15, color: tokens.ink } },
+      margin: isMobile ? { t: 36, r: 10, b: 56, l: 54 } : { t: 40, r: 16, b: 60, l: 75 },
+      xaxis: {
+        gridcolor: tokens.grid,
+        zeroline: false
+      },
       yaxis: {
         title: unitLabel,
-        gridcolor: "#eef2f8",
+        gridcolor: tokens.grid,
         zeroline: false
       },
       boxmode: isComparison ? "group" : "overlay",
       legend: {
         orientation: "h",
-        y: -0.2,
+        y: isMobile ? -0.28 : -0.2,
+        font: { size: isMobile ? 10 : 12 },
         itemclick: "toggle",
         itemdoubleclick: "toggleothers"
+      },
+      hoverlabel: {
+        bgcolor: tokens.hoverBg,
+        bordercolor: tokens.hoverBorder,
+        font: { color: tokens.ink }
       },
       paper_bgcolor: "rgba(0,0,0,0)",
       plot_bgcolor: "rgba(0,0,0,0)"
@@ -1352,8 +1450,15 @@
       state.boxOptions.includeFeatured = event.target.checked;
       drawChart();
     });
+
+    if ($("theme-toggle")) {
+      $("theme-toggle").addEventListener("click", function () {
+        applyTheme(currentTheme() === "dark" ? "light" : "dark", true);
+      });
+    }
   }
 
+  initTheme();
   wireEvents();
   loadCatalogue(false);
 })();
