@@ -138,6 +138,16 @@ tbody tr:hover { background: #f8fafd; }
 .deal-overpriced { background: var(--red-bg); color: var(--red); border-color: #f0c3cb; }
 .deal-unknown { background: #eef2f8; color: var(--muted); border-color: var(--line); }
 
+/* Arbitrage indicator badges (Task 4.3) */
+.arb-badge {
+  display: inline-block; padding: 1px 7px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: .01em;
+  white-space: nowrap; margin: 1px 2px;
+}
+.arb-high-margin { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+.arb-urgent { background: #fce4ec; color: #b71c1c; border: 1px solid #ef9a9a; }
+.arb-location { background: #e0f2f1; color: #004d40; border: 1px solid #80cbc4; }
+
 .banner { margin: 12px 24px 0; padding: 10px 14px; border-radius: 10px; font-size: 13.5px; }
 .banner-error { background: var(--red-bg); color: var(--red); border: 1px solid #f0c3cb; }
 .banner-info { background: #eaf1fd; color: var(--accent-dark); border: 1px solid #c8dbfa; }

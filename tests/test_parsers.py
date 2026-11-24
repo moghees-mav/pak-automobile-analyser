@@ -1104,6 +1104,55 @@ class Task42GenericSearchAndArbitrageTests(unittest.TestCase):
         self.assertEqual(parsed["price_pkr"], 1_850_000.0)
 
 
+class Task43ArbitrageMatrixTests(unittest.TestCase):
+    def test_discount_tier_label_classification(self):
+        self.assertEqual(pw.discount_tier_label(25.0), "Deep Discount (>20%)")
+        self.assertEqual(pw.discount_tier_label(15.0), "Strong Discount (10–20%)")
+        self.assertEqual(pw.discount_tier_label(7.5), "Moderate Discount (5–10%)")
+        self.assertEqual(pw.discount_tier_label(0.0), "Near FMV (±5%)")
+        self.assertEqual(pw.discount_tier_label(-4.0), "Near FMV (±5%)")
+        self.assertEqual(pw.discount_tier_label(-10.0), "Above FMV (>5%)")
+        self.assertEqual(pw.discount_tier_label(None), "No FMV Data")
+        self.assertEqual(pw.discount_tier_label(float("nan")), "No FMV Data")
+
+    def test_derive_arbitrage_badges(self):
+        # All three badges triggered
+        badges = pw.derive_arbitrage_badges(20.0, -1.8, "Lahore")
+        self.assertIn("High Margin", badges)
+        self.assertIn("Urgent Sale Candidate", badges)
+        self.assertIn("Location Arbitrage Potential", badges)
+
+        # Only Location Arbitrage Potential (pct >= 8, z not < -1.5, has location)
+        badges2 = pw.derive_arbitrage_badges(10.0, -0.9, "Islamabad")
+        self.assertEqual(badges2, ["Location Arbitrage Potential"])
+
+        # No location -> no Location Arbitrage Potential
+        badges3 = pw.derive_arbitrage_badges(16.0, -0.5, None)
+        self.assertEqual(badges3, ["High Margin"])
+
+        # Fair price -> no badges
+        self.assertEqual(pw.derive_arbitrage_badges(2.0, -0.2, "Karachi"), [])
+
+    def test_payload_includes_discount_tier_and_arbitrage_badges(self):
+        rows = [
+            _listing_row(listing_id="1", make="Toyota", model="Corolla", year=2019, price_pkr=3_400_000, location="Lahore"),
+            _listing_row(listing_id="2", make="Toyota", model="Corolla", year=2019, price_pkr=3_500_000, location="Lahore"),
+            _listing_row(listing_id="3", make="Toyota", model="Corolla", year=2019, price_pkr=3_600_000, location="Karachi"),
+            _listing_row(listing_id="4", make="Toyota", model="Corolla", year=2019, price_pkr=2_400_000, location="Islamabad"),
+        ]
+        df = _frame(rows)
+        payload = pw.build_scatter_payload(df, make="toyota", model="corolla")
+        self.assertIn("discount_tier", payload["facets"])
+        for pt in payload["points"]:
+            self.assertIn("discount_tier", pt)
+            self.assertIn("arbitrage_badges", pt)
+            self.assertIsInstance(pt["arbitrage_badges"], list)
+        bargain = next(p for p in payload["points"] if p["listing_id"] == "4")
+        self.assertEqual(bargain["discount_tier"], "Deep Discount (>20%)")
+        self.assertIn("High Margin", bargain["arbitrage_badges"])
+        self.assertIn("Location Arbitrage Potential", bargain["arbitrage_badges"])
+
+
 if __name__ == "__main__":
     unittest.main()
 

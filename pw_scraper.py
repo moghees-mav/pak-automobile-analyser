@@ -2132,6 +2132,87 @@ def calculate_arbitrage_metrics(
     return pkr_below, pct_below
 
 
+# --------------------------------------------------------- Task 4.3 helpers
+
+#: Discount-depth tiers for the scatter-plot colour mode and visual matrix.
+DISCOUNT_TIER_ORDER = [
+    "Deep Discount (>20%)",
+    "Strong Discount (10–20%)",
+    "Moderate Discount (5–10%)",
+    "Near FMV (±5%)",
+    "Above FMV (>5%)",
+    "No FMV Data",
+]
+
+
+def discount_tier_label(pct_below_fmv: Optional[float]) -> str:
+    """Classify a listing into a discount-depth tier for visual grouping.
+
+    * ``>20%`` below FMV → Deep Discount
+    * ``10–20%`` → Strong Discount
+    * ``5–10%`` → Moderate Discount
+    * ``±5%`` → Near FMV
+    * ``>5%`` above FMV → Above FMV
+    * missing data → No FMV Data
+    """
+    if pct_below_fmv is None:
+        return "No FMV Data"
+    try:
+        v = float(pct_below_fmv)
+    except (TypeError, ValueError):
+        return "No FMV Data"
+    if not math.isfinite(v):
+        return "No FMV Data"
+    if v > 20:
+        return "Deep Discount (>20%)"
+    if v > 10:
+        return "Strong Discount (10–20%)"
+    if v > 5:
+        return "Moderate Discount (5–10%)"
+    if v >= -5:
+        return "Near FMV (±5%)"
+    return "Above FMV (>5%)"
+
+
+def derive_arbitrage_badges(
+    pct_below_fmv: Optional[float],
+    z_score: Optional[float],
+    location: Optional[str],
+) -> list[str]:
+    """Compute a list of arbitrage indicator badges for one listing.
+
+    Badges (non-exclusive — a listing can carry several):
+
+    * **High Margin** – price is ≥ 15 % below group FMV.
+    * **Urgent Sale Candidate** – statistical outlier (z < −1.5), likely a
+      motivated / desperate seller.
+    * **Location Arbitrage Potential** – moderately under-priced (≥ 8 % below
+      FMV) *and* has a known city, suggesting inter-city resale profit.
+    """
+    badges: list[str] = []
+    pct = _safe_float(pct_below_fmv)
+    z = _safe_float(z_score)
+
+    if pct is not None and pct >= 15.0:
+        badges.append("High Margin")
+    if z is not None and z < -1.5:
+        badges.append("Urgent Sale Candidate")
+    if pct is not None and pct >= 8.0 and location:
+        badges.append("Location Arbitrage Potential")
+    return badges
+
+
+def _safe_float(value: object) -> Optional[float]:
+    """Convert to float or return ``None`` on failure / NaN / Inf."""
+    if value is None:
+        return None
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    return v if math.isfinite(v) else None
+
+
 def group_listings_dynamically(
     df: Optional[pd.DataFrame], by_variant: bool = False, min_group_size: int = 3
 ) -> dict[tuple, pd.DataFrame]:
@@ -2534,6 +2615,7 @@ def build_scatter_payload(
                 "fuel_type": [],
                 "location": [],
                 "deal_rating": [],
+                "discount_tier": [],
             },
             "editable_fields": editable_field_specs(),
             "trend": None,
@@ -2593,6 +2675,14 @@ def build_scatter_payload(
                     record.get("deal_rating"), UNKNOWN_DEAL_RATING
                 ),
                 "fmv_method": _payload_label(record.get("fmv_method"), "unavailable"),
+                "discount_tier": discount_tier_label(
+                    _payload_number(record.get("pct_below_fmv"), 2)
+                ),
+                "arbitrage_badges": derive_arbitrage_badges(
+                    _payload_number(record.get("pct_below_fmv"), 2),
+                    _payload_number(record.get("z_score"), 4),
+                    _payload_text(record.get("location")),
+                ),
             }
         )
 
@@ -2689,6 +2779,10 @@ def build_scatter_payload(
             "location": facet("location"),
             "deal_rating": [
                 label for label in DEAL_RATING_ORDER if deal_counts.get(label, 0)
+            ],
+            "discount_tier": [
+                tier for tier in DISCOUNT_TIER_ORDER
+                if any(p.get("discount_tier") == tier for p in points)
             ],
         },
         "trend": trend,

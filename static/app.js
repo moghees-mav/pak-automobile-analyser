@@ -23,6 +23,27 @@
     "Unknown": "deal-unknown"
   };
 
+  /* Task 4.3 — Discount-depth tier colour palette for scatter "Colour by" */
+  var DISCOUNT_TIER_ORDER = [
+    "Deep Discount (>20%)", "Strong Discount (10–20%)", "Moderate Discount (5–10%)",
+    "Near FMV (±5%)", "Above FMV (>5%)", "No FMV Data"
+  ];
+  var DISCOUNT_TIER_COLORS = {
+    "Deep Discount (>20%)":      "#1a9850",
+    "Strong Discount (10–20%)":  "#66bd63",
+    "Moderate Discount (5–10%)": "#a6d96a",
+    "Near FMV (±5%)":            "#4c78a8",
+    "Above FMV (>5%)":           "#d73027",
+    "No FMV Data":               "#9aa5b1"
+  };
+
+  /* Task 4.3 — Arbitrage badge CSS class map */
+  var ARB_BADGE_CLASSES = {
+    "High Margin":                  "arb-high-margin",
+    "Urgent Sale Candidate":        "arb-urgent",
+    "Location Arbitrage Potential":  "arb-location"
+  };
+
   var state = {
     catalogue: null,
     estimate: null,
@@ -32,6 +53,7 @@
     snapshot: null,
     previewFilter: "",
     dealFilter: "",
+    tableSortMode: "default",
     editing: null,
     targets: [],
     viewMode: "scatter",
@@ -97,6 +119,27 @@
 
   function dealColor(rating) { return DEAL_COLORS[rating] || DEAL_COLORS.Unknown; }
   function dealBadgeClass(rating) { return DEAL_BADGES[rating] || DEAL_BADGES.Unknown; }
+  function discountTierColor(tier) { return DISCOUNT_TIER_COLORS[tier] || DISCOUNT_TIER_COLORS["No FMV Data"]; }
+
+  function arbBadgesHtml(badges) {
+    if (!badges || !badges.length) { return "-"; }
+    return badges.map(function (b) {
+      var cls = ARB_BADGE_CLASSES[b] || "";
+      return '<span class="arb-badge ' + cls + '">' + escapeHtml(b) + "</span>";
+    }).join(" ");
+  }
+
+  function formatPctBelow(value) {
+    if (value === null || value === undefined) { return "n/a"; }
+    var v = Number(value);
+    return (v > 0 ? "−" : "+") + Math.abs(v).toFixed(1) + "%";
+  }
+
+  function formatMarginLacs(value) {
+    if (value === null || value === undefined) { return "n/a"; }
+    var lacs = Number(value) / 100000;
+    return (lacs > 0 ? "+" : "") + lacs.toFixed(2) + " lacs";
+  }
 
   function escapeHtml(text) {
     return String(text === null || text === undefined ? "" : text)
@@ -580,7 +623,10 @@
       { key: "price_lacs", label: "Price (lacs)" },
       { key: "expected_price_lacs", label: "FMV (lacs)", kind: "lacs" },
       { key: "residual_pkr", label: "Δ vs FMV (lacs)", kind: "signed-lacs" },
+      { key: "pkr_below_fmv", label: "Margin (lacs)", kind: "margin-lacs" },
+      { key: "pct_below_fmv", label: "Discount %", kind: "pct-below" },
       { key: "deal_rating", label: "Deal", kind: "deal" },
+      { key: "arbitrage_badges", label: "Indicators", kind: "arb-badges" },
       { key: "mileage_km", label: "Mileage (km)" },
       { key: "transmission", label: "Transmission" },
       { key: "location", label: "City" },
@@ -619,6 +665,15 @@
         if (col.kind === "signed-lacs") {
           return "<td>" + escapeHtml(formatResidualLacs(value)) + "</td>";
         }
+        if (col.kind === "margin-lacs") {
+          return "<td>" + escapeHtml(formatMarginLacs(value)) + "</td>";
+        }
+        if (col.kind === "pct-below") {
+          return "<td>" + escapeHtml(formatPctBelow(value)) + "</td>";
+        }
+        if (col.kind === "arb-badges") {
+          return "<td>" + arbBadgesHtml(value) + "</td>";
+        }
         if (value === null || value === undefined || value === "") { return "<td>-</td>"; }
         return "<td>" + escapeHtml(value) + "</td>";
       }).join("") + "</tr>";
@@ -637,12 +692,36 @@
       });
     }
     var needle = (state.previewFilter || "").trim().toLowerCase();
-    if (!needle) { return points; }
-    return points.filter(function (point) {
-      return [point.listing_id, point.title, point.variant_family, point.variant,
-        point.location, point.year, point.deal_rating].join(" ").toLowerCase()
-        .indexOf(needle) !== -1;
-    });
+    if (needle) {
+      points = points.filter(function (point) {
+        return [point.listing_id, point.title, point.variant_family, point.variant,
+          point.location, point.year, point.deal_rating].join(" ").toLowerCase()
+          .indexOf(needle) !== -1;
+      });
+    }
+
+    /* Task 4.3 — Table sorting for flip opportunities */
+    var sortMode = state.tableSortMode || "default";
+    if (sortMode === "margin_desc") {
+      points = points.slice().sort(function (a, b) {
+        var av = (a.pkr_below_fmv === null || a.pkr_below_fmv === undefined) ? -Infinity : a.pkr_below_fmv;
+        var bv = (b.pkr_below_fmv === null || b.pkr_below_fmv === undefined) ? -Infinity : b.pkr_below_fmv;
+        return bv - av;
+      });
+    } else if (sortMode === "discount_desc") {
+      points = points.slice().sort(function (a, b) {
+        var av = (a.pct_below_fmv === null || a.pct_below_fmv === undefined) ? -Infinity : a.pct_below_fmv;
+        var bv = (b.pct_below_fmv === null || b.pct_below_fmv === undefined) ? -Infinity : b.pct_below_fmv;
+        return bv - av;
+      });
+    } else if (sortMode === "price_asc") {
+      points = points.slice().sort(function (a, b) {
+        var av = (a.price_pkr === null || a.price_pkr === undefined) ? Infinity : a.price_pkr;
+        var bv = (b.price_pkr === null || b.price_pkr === undefined) ? Infinity : b.price_pkr;
+        return av - bv;
+      });
+    }
+    return points;
   }
 
   function findPoint(listingId) {
@@ -893,22 +972,42 @@
       entries.sort(function (a, b) {
         return DEAL_ORDER.indexOf(a[0]) - DEAL_ORDER.indexOf(b[0]);
       });
+    } else if (options.color === "discount_tier") {
+      entries.sort(function (a, b) {
+        return DISCOUNT_TIER_ORDER.indexOf(a[0]) - DISCOUNT_TIER_ORDER.indexOf(b[0]);
+      });
     }
 
     var traces = [];
     var isComparison = payload.meta && payload.meta.comparison;
     var isModelColor = options.color === "make_model";
+    var isDiscountColor = options.color === "discount_tier";
+
+    /* Task 4.3 — Visual grouping of mixed models via marker symbol when not coloured by model */
+    var MODEL_SYMBOLS = ["circle", "diamond", "square", "triangle-up", "cross", "x", "star", "pentagon"];
+    var modelList = (payload.facets && payload.facets.make_model) || [];
+    var hasMixedModels = modelList.length > 1 && !isModelColor;
+    var modelSymbolMap = {};
+    modelList.forEach(function (m, i) {
+      modelSymbolMap[m] = MODEL_SYMBOLS[i % MODEL_SYMBOLS.length];
+    });
 
     entries.forEach(function (entry, idx) {
       var key = entry[0];
       var items = entry[1];
-      var color = (options.color === "deal_rating") ? dealColor(key) : PALETTE[idx % PALETTE.length];
+      var color = (options.color === "deal_rating") ? dealColor(key)
+        : (isDiscountColor ? discountTierColor(key) : PALETTE[idx % PALETTE.length]);
       var marker = {
-        size: options.color === "deal_rating" ? 13 : 12,
+        size: (options.color === "deal_rating" || isDiscountColor) ? 13 : 12,
         opacity: 0.85,
         color: color,
         line: { width: 1, color: "#ffffff" }
       };
+      if (hasMixedModels) {
+        marker.symbol = items.map(function (point) {
+          return modelSymbolMap[point.make_model] || "circle";
+        });
+      }
 
       traces.push({
         type: "scatter",
@@ -928,7 +1027,10 @@
             (point.z_score === null || point.z_score === undefined)
               ? "n/a" : Number(point.z_score).toFixed(2),
             point.fmv_method || "unavailable",
-            point.make_model || ""
+            point.make_model || "",
+            formatPctBelow(point.pct_below_fmv),
+            (point.arbitrage_badges && point.arbitrage_badges.length)
+              ? point.arbitrage_badges.join(", ") : "None"
           ];
         }),
         marker: marker,
@@ -937,8 +1039,9 @@
           "<br>Variant: %{customdata[1]}<br>Mileage: %{customdata[2]} km" +
           "<br>Transmission: %{customdata[3]}<br>Fuel: %{customdata[4]}<br>City: %{customdata[5]}" +
           "<br>%{customdata[6]} (%{customdata[8]})" +
-          "<br>FMV: %{customdata[9]}<br>Residual: %{customdata[10]}" +
+          "<br>FMV: %{customdata[9]}<br>Residual: %{customdata[10]} (%{customdata[15]})" +
           "<br>Deal: %{customdata[11]} (z=%{customdata[12]}, %{customdata[13]})" +
+          "<br>Indicators: %{customdata[16]}" +
           "<extra>" + key + "</extra>"
       });
 
@@ -1190,6 +1293,12 @@
 
     $("preview-filter").addEventListener("input", onFilterInput);
     $("deal-filter").addEventListener("change", onDealFilterChange);
+    if ($("table-sort")) {
+      $("table-sort").addEventListener("change", function (event) {
+        state.tableSortMode = event.target.value;
+        if (state.payload) { renderPreview(state.payload); }
+      });
+    }
     $("preview-table").addEventListener("click", onPreviewClick);
     $("edit-form").addEventListener("submit", submitEdits);
     $("edit-cancel").addEventListener("click", function (event) {

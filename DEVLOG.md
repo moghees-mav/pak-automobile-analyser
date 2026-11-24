@@ -1,8 +1,8 @@
 # DEVLOG — PakWheels Scraper & Visualizer
 
 > Single source of truth for roadmap progress, state changes and hand-off notes.
-> **Last updated:** 2026-11-12
-> **Current status:** `Task 4.2: Complete`
+> **Last updated:** 2026-11-25
+> **Current status:** `Task 4.3: Complete`
 
 ---
 
@@ -16,10 +16,21 @@
 | Feature 3 | Historical Tracking & Price Drops — SQLite storage, snapshot comparisons, price-drop badging | Not started |
 | **Task 4.1** | Comprehensive PakWheels Search Filter Integration | **Done** |
 | **Task 4.2** | Generic Search Scraper & Cross-Model Normalization | **Done** |
-| Task 4.3 | Arbitrage & Flip Opportunity Matrix UI | Next |
-| Task 4.4 | Export & Deal Alert Dashboard | Pending |
+| **Task 4.3** | Arbitrage & Flip Opportunity Matrix UI | **Done** |
+| Task 4.4 | Export & Deal Alert Dashboard | Next |
 
 ### Active Micro-Task
+
+**`Task 4.3: Arbitrage & Flip Opportunity Matrix UI — Complete`**
+
+Delivered in Task 4.3:
+- **Backend Arbitrage Helpers (`pw_scraper.py`):** Added `discount_tier_label()` (classifying `pct_below_fmv` into 6 discount-depth tiers) and `derive_arbitrage_badges()` (deriving `High Margin`, `Urgent Sale Candidate`, and `Location Arbitrage Potential`), exposed on every point and facet in `build_scatter_payload()`.
+- **Table Sorting & Arbitrage Columns (`templates/index.html`, `static/app.js`):** Added `#table-sort` dropdown supporting `Highest Margin First` (`margin_desc`), `Greatest Discount %` (`discount_desc`), and `Lowest Price` (`price_asc`), plus `Margin (lacs)`, `Discount %`, and `Indicators` columns in the preview table.
+- **Visual Deal Matrix (`static/app.js`, `templates/index.html`):** Added `Discount Depth` (`discount_tier`) colour-coding mode in the Plotly scatter plot, distinct marker symbols per `make_model` when plotting mixed models, and discount/indicator details in hover tooltips.
+- **Arbitrage Badges (`static/style.css`, `static/app.js`):** Styled and rendered pill badges for `High Margin`, `Urgent Sale Candidate`, and `Location Arbitrage Potential`.
+- **Test Coverage (`tests/test_parsers.py`):** Added `Task43ArbitrageMatrixTests` covering discount-tier classification, arbitrage badge derivation, and scatter payload fields (91/91 tests passing).
+
+---
 
 **`Task 4.2: Generic Search Scraper & Cross-Model Normalization — Complete`**
 

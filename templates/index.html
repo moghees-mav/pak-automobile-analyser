@@ -280,6 +280,7 @@
           <option value="fuel_type">Fuel</option>
           <option value="location">City</option>
           <option value="deal_rating">Deal Rating</option>
+          <option value="discount_tier">Discount Depth</option>
         </select>
       </label>
       <label class="check"><input id="toggle-trend" type="checkbox" checked /> Trend line</label>
@@ -327,6 +328,14 @@
             {% for rating in deal_ratings %}
             <option value="{{ rating }}">{{ rating }}</option>
             {% endfor %}
+          </select>
+        </label>
+        <label>Sort by
+          <select id="table-sort">
+            <option value="default">Default order</option>
+            <option value="margin_desc">Highest Margin First</option>
+            <option value="discount_desc">Greatest Discount %</option>
+            <option value="price_asc">Lowest Price</option>
           </select>
         </label>
       </div>
